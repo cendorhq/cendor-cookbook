@@ -20,9 +20,9 @@ package = false
 [dependency-groups]
 # Test/lint tooling shared by the testing/ and governance/ recipes and CI.
 dev = [
-  "pytest>=8,<9",
+  "pytest>=8,<10",
   "pytest-xdist>=3,<4",
-  "pytest-asyncio>=0.24,<0.30",
+  "pytest-asyncio>=0.24,<1.5",
   "ruff>=0.6,<1.0",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
