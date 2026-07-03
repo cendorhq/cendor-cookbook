@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "entries": [
+    {
+      "seq": 0,
+      "kind": "tool",
+      "request_hash": "392bad1dd0f200983fc5043c3d6b1428b560af272a1f3ca005783984b70dfaed",
+      "request": {
+        "kind": "tool",
+        "name": "lookup_account",
+        "arguments": {
+          "args": [
+            "alice"
+          ],
+          "kwargs": {}
+        }
+      },
+      "response": {
+        "user_id": "alice",
+        "tier": "gold"
+      },
+      "response_type": "mapping"
+    },
+    {
+      "seq": 1,
+      "kind": "llm",
+      "request_hash": "e940bdf7631681d75a44872d2978ff6e645f57fd4c20ce6d77ba58b8fba61c46",
+      "request": {
+        "kind": "llm",
+        "provider": "openai",
+        "model": "gpt-4o",
+        "messages": [
+          {
+            "role": "system",
+            "content": "{'user_id': 'alice', 'tier': 'gold'}"
+          },
+          {
+            "role": "user",
+            "content": "look up my account"
+          }
+        ],
+        "stream": false
+      },
+      "response": {
+        "choices": [
+          {
+            "message": {
+              "content": "Your refund was approved."
+            }
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 22,
+          "completion_tokens": 7
+        }
+      },
+      "response_type": "object"
+    }
+  ]
+}

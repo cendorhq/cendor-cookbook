@@ -1,0 +1,126 @@
+name: CI
+
+# Every job runs the recipes OFFLINE against the shipped PyPI packages. There are NO secrets
+# configured in this repo — a recipe that needs a key to go green does not belong here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly re-resolve within the pyproject bounds, to catch dependency drift (new cendor 1.x,
+  # new framework releases) before users do.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  quickstarts:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run every quickstart offline
+        run: |
+          for f in recipes/quickstarts/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
+          done
+
+  providers:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run every provider recipe offline
+        run: |
+          for f in recipes/providers/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
+          done
+
+  frameworks:
+    # One matrix entry per framework, each installing ONLY its own dependency-group, so a
+    # breaking release in one framework turns just its cell red — never the whole matrix.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+        framework:
+          - { name: langchain, group: frameworks-langchain }
+          - { name: openai-agents-sdk, group: frameworks-agents }
+          - { name: llamaindex, group: frameworks-llamaindex }
+          - { name: azure-foundry-otel, group: frameworks-otel }
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - name: run ${{ matrix.framework.name }} recipe offline
+        # `uv run --group` installs ONLY this framework's SDK group (+ base), keeping frameworks
+        # isolated — a break in one framework's release turns just this cell red.
+        run: |
+          dir="recipes/frameworks/${{ matrix.framework.name }}"
+          for f in "$dir"/*.py; do
+            echo "::group::$f"
+            uv run --python ${{ matrix.python }} --group ${{ matrix.framework.group }} python "$f"
+            echo "::endgroup::"
+          done
+
+  testing:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python ${{ matrix.python }}
+      - name: pytest the cassette suite under xdist (0 API calls)
+        run: uv run --python ${{ matrix.python }} pytest recipes/testing -n auto
+
+  governance:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run the EU AI Act evidence walkthrough offline
+        run: uv run --python ${{ matrix.python }} python recipes/governance/eu-ai-act-evidence/main.py
+      - name: pytest the governance recipe
+        run: uv run --python ${{ matrix.python }} pytest recipes/governance

@@ -1,0 +1,58 @@
+# Cendor Cookbook — a uv-managed project of copy-paste recipes (not a published package).
+# Recipes install the SHIPPED PyPI packages (cendor 1.0.x), never local source, and every
+# recipe runs offline with no API key. Framework SDKs live in per-category dependency-groups
+# with upper bounds so one framework's breaking release can't turn the whole repo's CI red.
+[project]
+name = "cendor-cookbook"
+version = "1.0.0"
+description = "Copy-paste recipes proving Cendor works with real frameworks and providers — every recipe runs offline, no API key."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = [
+  "cendor>=1.0,<2.0",
+  "cendor-core[tiktoken]>=1.0,<2.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+# Test/lint tooling shared by the testing/ and governance/ recipes and CI.
+dev = [
+  "pytest>=8,<9",
+  "pytest-xdist>=3,<4",
+  "pytest-asyncio>=0.24,<0.30",
+  "ruff>=0.6,<1.0",
+]
+# Framework SDK groups — one per framework category so CI can install (and break) them in
+# isolation. Each carries an upper bound at the next breaking release, so one framework's
+# major/minor bump can turn its own job red without failing the rest of the repo's CI.
+# (These are the versions resolved at authoring time; the weekly cron re-resolves within
+# these bounds to catch drift.)
+frameworks-langchain = [
+  "langchain>=1.3,<2",
+  "langchain-openai>=1.3,<2",
+  "langgraph>=1.2,<2",
+]
+frameworks-agents = [
+  "openai-agents>=0.17,<0.18",
+]
+frameworks-llamaindex = [
+  "llama-index-core>=0.14,<0.15",
+]
+frameworks-otel = [
+  "opentelemetry-sdk>=1.43,<2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["recipes"]
+asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
