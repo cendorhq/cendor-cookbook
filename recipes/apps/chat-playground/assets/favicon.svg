@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cendor starburst">
+  <!-- Cendor starburst: six spokes + dots around a blue hub (#2563EB). -->
+  <g stroke="#2563EB" stroke-width="3.2" stroke-linecap="round">
+    <line x1="42" y1="32" x2="53" y2="32"/>
+    <line x1="37" y1="23.34" x2="42.5" y2="13.81"/>
+    <line x1="27" y1="23.34" x2="21.5" y2="13.81"/>
+    <line x1="22" y1="32" x2="11" y2="32"/>
+    <line x1="27" y1="40.66" x2="21.5" y2="50.19"/>
+    <line x1="37" y1="40.66" x2="42.5" y2="50.19"/>
+  </g>
+  <g fill="#2563EB">
+    <circle cx="57.5" cy="32" r="2.7"/>
+    <circle cx="44.75" cy="9.92" r="2.7"/>
+    <circle cx="19.25" cy="9.92" r="2.7"/>
+    <circle cx="6.5" cy="32" r="2.7"/>
+    <circle cx="19.25" cy="54.08" r="2.7"/>
+    <circle cx="44.75" cy="54.08" r="2.7"/>
+  </g>
+  <circle cx="32" cy="32" r="7" fill="#2563EB"/>
+  <circle cx="32" cy="32" r="2.6" fill="#0F172A"/>
+</svg>

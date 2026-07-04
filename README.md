@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
 
 Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/Cendor) — production plumbing
 for LLM apps (cost, context, testing, governance) — works with the frameworks and providers you
@@ -10,6 +11,20 @@ already use. **Every recipe runs offline, with no API key.**
 Each recipe installs the shipped PyPI package (`cendor>=1.0,<2.0`) and drives it against a fake
 provider-shaped client, exactly the way Cendor's own test suite does — so there's nothing to sign
 up for and nothing to spend.
+
+## Start here: the Chat Playground
+
+New to Cendor? The [**Chat Playground**](recipes/apps/chat-playground/) is a chat app that makes
+the whole plumbing layer visible on every turn — budget blocking, context packing, compression,
+record/replay, and a tamper-evident audit chain, all live in one UI. Open it in the cloud with one
+click, or run it locally:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
+
+```bash
+uv sync --group apps
+uv run --group apps python recipes/apps/chat-playground/app.py
+```
 
 ## Quickstart
 
@@ -34,6 +49,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 
 | Recipe | Category | What it proves | Libraries | Offline |
 |---|---|---|---|---|
+| [**chat-playground**](recipes/apps/chat-playground/) | **app** | Every library live in one chat UI — the plumbing made visible per turn | `core` `tokenguard` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
 | [tokenguard](recipes/quickstarts/tokenguard/) | quickstart | Block a runaway loop *before* it overspends (pre-flight cap) | `core` `tokenguard` | ✓ |
 | [contextkit](recipes/quickstarts/contextkit/) | quickstart | Fit a prompt to budget with a kept/shrunk/dropped receipt | `core` `contextkit` | ✓ |
 | [squeeze](recipes/quickstarts/squeeze/) | quickstart | Compress a huge blob to a token target, restore byte-for-byte | `core` `squeeze` | ✓ |

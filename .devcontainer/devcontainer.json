@@ -1,0 +1,22 @@
+{
+  "name": "cendor-cookbook",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "onCreateCommand": "pip install --upgrade uv",
+  "postCreateCommand": "uv sync --group apps",
+  "forwardPorts": [7860],
+  "portsAttributes": {
+    "7860": {
+      "label": "Chat Playground",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ]
+    }
+  },
+  "postAttachCommand": "echo 'Run: uv run --group apps python recipes/apps/chat-playground/app.py'"
+}

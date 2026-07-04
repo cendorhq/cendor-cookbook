@@ -8,6 +8,7 @@ __pycache__/
 build/
 dist/
 .eggs/
+plan/
 
 # Environments & tooling caches
 .venv/

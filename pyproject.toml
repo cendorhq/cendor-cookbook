@@ -44,6 +44,15 @@ frameworks-llamaindex = [
 frameworks-otel = [
   "opentelemetry-sdk>=1.43,<2",
 ]
+# The chat-playground app (recipes/apps/chat-playground). Gradio is pinned with an upper bound
+# so a Gradio breaking release turns only this group's CI cell red — never the recipes' jobs.
+# The provider SDKs are optional (live mode only); demo mode needs neither, and app.py imports
+# them lazily so the group installs and imports fine without a key.
+apps = [
+  "gradio>=5,<6",
+  "openai>=1.40,<3",
+  "anthropic>=0.40,<1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["recipes"]
