@@ -8,7 +8,8 @@ the compression saving tokens — so you don't trust that any of it is really ha
 
 This is a chat app that makes that layer visible on **every turn**. Chat on the left; a live
 "plumbing panel" on the right where each Cendor library shows its work. Everything except the
-reply text is real Cendor — real token counting, real budget math, a real signed hash chain.
+reply text is real Cendor — real token counting, real budget math, real offline secret/PII
+detection, and a real signed hash chain.
 
 ## What each panel shows
 
@@ -18,7 +19,7 @@ reply text is real Cendor — real token counting, real budget math, a real sign
 | **🧾 Receipt** | `contextkit` | The per-turn assembly receipt (`block · action · tokens`). Chat history is packed through a real `Context` with a visible token budget — watch the history block keep recent turns and **peel its oldest** ones as the chat grows. |
 | **🗜 Compression** | `squeeze` | Paste more than 1,500 characters and it's compressed *before* it's sent: `X → Y tokens (Z% smaller)`. The **Expand** button restores the original **byte-for-byte**. |
 | **⏺ Recorder** | `cassette` | **Record** the session, then **Replay** it offline — same replies, **0 calls, $0** (works even with the key removed). **Download** the session as a cassette JSON and **Upload** one back to replay it — the "send a bug repro as a cassette" story. Uploads are size-capped, version-checked, and never `eval`'d. |
-| **🔗 Audit** | `acttrace` | The signed hash chain's live entry count. **Export** an EU-AI-Act-tagged evidence pack (JSONL), **Verify** it (`True`), and run the **Tamper** demo — one flipped byte makes verify return `False` and names the failing sequence number. |
+| **🔗 Audit** | `acttrace` | An offline **detection engine** scans every prompt (~20 categories across secret · credential · financial · gov_id · pii · special_category) against a **Policy** preset — `default` · `gdpr` · `pci` · `strict` — and each hit resolves to **block · redact · flag**. `default` **redacts** an API key/email *before send* (the model never sees it); switch to `strict`/`pci` and the same key is **blocked pre-flight** ($0 spent). Every action lands on the signed hash chain. **Export** an EU-AI-Act-tagged evidence pack (JSONL), **Verify** it (`True`), and run the **Tamper** demo — one flipped byte makes verify return `False` and names the failing sequence number. |
 | **📡 Bus feed** | `core` | One normalized event card per call: `provider · model · usage · Decimal cost · cost_estimated`. The `instrument()` seam, made visible. |
 
 ## Run it locally
@@ -44,7 +45,8 @@ uv run --group apps python recipes/apps/chat-playground/app.py
 **Demo mode is the default and needs no key.** It uses a fake provider-shaped client with canned,
 deterministic replies priced as `gpt-4o`. The reply *text* is scripted; **everything else is real
 Cendor** — the token counts, the budget projection, the context receipt, the compression, the
-cassette, and the signed audit chain are all genuine. The UI labels this honestly:
+offline secret/PII detection, the cassette, and the signed audit chain are all genuine. The UI
+labels this honestly:
 *"demo model — connect a key for a live one."*
 
 **Live mode** adds a provider picker (OpenAI / Anthropic) and a password box. The key is read from
@@ -61,8 +63,9 @@ value so the app is green out of the box.)
 
 ## Offline guarantee
 
-Demo mode makes **no network call** — the fake client has no socket, and the provider SDKs are
-imported lazily only on the live path. The offline test suite asserts it:
+Demo mode makes **no network call** — the fake client has no socket, the acttrace detection engine
+(`scan`/`redact`) runs entirely offline, and the provider SDKs are imported lazily only on the live
+path. The offline test suite asserts it:
 
 ```bash
 uv run --group apps pytest recipes/apps/chat-playground/test_app.py
