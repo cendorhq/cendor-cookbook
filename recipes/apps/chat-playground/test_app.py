@@ -50,9 +50,20 @@ def _detach_all():
     app.SESSIONS.clear()
 
 
-def _submit(prompt, sid, cap=0.50, mode="block", run_mode="Demo"):
-    out = app.on_submit(prompt, sid, run_mode, "OpenAI", "", cap, mode)
-    return out, out[8]  # (outputs, session id)
+def _submit(prompt, sid, cap=0.50, mode="block", run_mode="Demo", policy="default"):
+    out = app.on_submit(prompt, sid, run_mode, "OpenAI", "", cap, mode, policy)
+    return out, out[-1]  # (outputs, session id) — sid is always the last output
+
+
+# indices into the panel-refresh tuple returned by on_submit
+_RECEIPT = 3
+_AUDIT = 6
+
+# A prompt carrying a secret (API key) + PII (email). Under the default policy both are redacted
+# before send; under strict the api_key is blocked pre-flight.
+SECRET = (
+    "here's my key sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8 — email alice@example.com"
+)
 
 
 def _blocked(session) -> bool:
@@ -87,9 +98,11 @@ def test_receipt_peels_history():
     peeled = False
     for prompt in PROMPTS[:5]:  # stop before the block
         out, sid = _submit(prompt, sid)
-        for row in out[3]:  # receipt rows: [block, action, tokens]
-            if row[0] == "history" and row[1] in ("truncated", "dropped"):
-                peeled = True
+        html = out[_RECEIPT]  # the receipt is rendered as an HTML table
+        if ">history</div><div class='cd-act cd-act-truncated'" in html or (
+            ">history</div><div class='cd-act cd-act-dropped'" in html
+        ):
+            peeled = True
     assert peeled, "history should peel its oldest turns as the chat grows"
 
 
@@ -165,6 +178,50 @@ def test_audit_export_verify_and_tamper():
     tampered = app.on_tamper(sid)
     assert "verify: False" in tampered
     assert "seq" in tampered  # names the failing sequence number
+
+
+def test_policy_redacts_secret_before_send():
+    """Default policy: the API key + email are scrubbed before the prompt reaches the model, and
+    the redaction lands on the audit chain — but the turn still runs (default never blocks)."""
+    out, sid = _submit(SECRET, None)  # default policy
+    session = app.SESSIONS[sid]
+    assert not _blocked(session), "the default policy redacts, it does not block"
+    sent = session.history[0]["content"]  # exactly what was handed to the model
+    assert "sk-proj-a1b2c3" not in sent, "the raw API key must never reach the model"
+    assert "alice@example.com" not in sent, "the raw email must never reach the model"
+    assert "<redacted>" in sent
+    assert "cd-act-compressed" in out[_AUDIT], "redact findings render on the audit panel"
+
+
+def test_policy_blocks_secret_under_strict():
+    """Strict policy: the API key is blocked pre-flight — nothing is sent, $0 is spent, and the
+    block is recorded on the chain."""
+    out, sid = _submit(SECRET, None, policy="strict")
+    session = app.SESSIONS[sid]
+    assert _blocked(session)
+    assert "Blocked by policy" in session.transcript[-1]["content"]
+    assert len(session.history) == 0, "a blocked turn sends nothing to the model"
+    assert float(session.spent_usd) == 0.0
+    assert "cd-act-dropped" in out[_AUDIT], "block findings render on the audit panel"
+
+
+def test_detection_is_offline():
+    """scan()/redact() must not touch the network — neither the redact nor the block path."""
+    app.tokens.count("warm the tokenizer", "gpt-4o")
+    app.scan("warm sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8", app.Policy.default())
+    original = socket.socket
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("detection attempted a network connection")
+
+    socket.socket = forbidden
+    try:
+        _, redacted_sid = _submit(SECRET, None)  # redact path
+        _, blocked_sid = _submit(SECRET, None, policy="strict")  # block path
+    finally:
+        socket.socket = original
+    assert not _blocked(app.SESSIONS[redacted_sid])
+    assert _blocked(app.SESSIONS[blocked_sid])
 
 
 def test_downgrade_mode_reroutes_under_cap():

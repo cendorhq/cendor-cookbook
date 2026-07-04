@@ -7,7 +7,8 @@ chat on the left and a live "plumbing panel" on the right, so every turn shows t
   * Receipt (contextkit) — the per-turn assembly receipt as chat history is packed to a budget.
   * Compression (squeeze) — paste a big blob and watch it shrink, reversibly, before it's sent.
   * Recorder (cassette) — record the session, replay it offline (0 calls, $0), download/upload it.
-  * Audit (acttrace) — the growing hash chain; export an evidence pack, verify it, tamper it.
+  * Audit (acttrace) — an offline detection engine scans every prompt against a Policy preset and
+    blocks/redacts/flags secrets & PII; the growing hash chain records it. Export, verify, tamper.
   * Bus feed (core) — one normalized event per call: provider, model, usage, Decimal cost.
 
 Everything except the reply text is REAL Cendor. Demo mode (default, no key) uses a fake
@@ -33,13 +34,13 @@ from typing import Any
 
 import gradio as gr
 from cendor import cassette
-from cendor.acttrace import AuditLog, verify
+from cendor.acttrace import AuditLog, Policy, redact, scan, verify
 from cendor.contextkit import Block, Context
 from cendor.core import bus, instrument, tokens
 from cendor.core.types import LLMCall
 from cendor.squeeze import compress
 from cendor.tokenguard import BudgetExceeded, budget, downgrades, track
-from theme import BLUE, CendorTheme
+from theme import HUE, CendorTheme, font_face_css
 
 # --------------------------------------------------------------------------- configuration
 
@@ -48,6 +49,24 @@ OPENAI_MODEL = "gpt-4o"
 ANTHROPIC_MODEL = "claude-sonnet-4-6"
 # Pre-flight downgrade targets (cheaper siblings) for on_exceed="downgrade".
 DOWNGRADE = {"gpt-4o": "gpt-4o-mini", "claude-sonnet-4-6": "claude-haiku-4-5"}
+
+# acttrace 1.1 detection policy presets. Each maps the ~20 detected categories (secret · credential
+# · financial · gov_id · pii · special_category) to an action — allow · flag · redact · block:
+#   default  secrets & email redact, everything else flag — never blocks
+#   gdpr     personal data redacted across the board
+#   pci      payment/financial data blocked, secrets & PII redacted
+#   strict   high-severity groups blocked, the rest redacted
+# The app ENFORCES (block pre-flight / scrub-before-send); acttrace RECORDS a tamper-evident flag.
+POLICY_PRESETS = {
+    "default": Policy.default,
+    "gdpr": Policy.gdpr,
+    "pci": Policy.pci,
+    "strict": Policy.strict,
+}
+POLICY_NAMES = list(POLICY_PRESETS)
+_SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
+# acttrace policy actions → the receipt's cd-act-* colour classes (red · green · amber · gray).
+_ACT_CLASS = {"block": "dropped", "redact": "compressed", "flag": "truncated", "allow": "kept"}
 
 # A support assistant that stuffs a product knowledge base + chat history into context each turn.
 # The KB is deliberately large so the budget math and the context receipt both have something real
@@ -184,6 +203,8 @@ class Session:
     last_compression: dict | None = None
     evidence_path: str | None = None
     turn: int = 0
+    policy_name: str = "default"  # acttrace detection preset (default | gdpr | pci | strict)
+    policy: Any = field(default_factory=lambda: Policy.default())
 
 
 def _new_session() -> Session:
@@ -304,6 +325,68 @@ def _snapshot(event: LLMCall) -> dict:
     }
 
 
+def _max_sev(sevs: Any) -> str:
+    """The most serious of the given severities (info < warning < critical)."""
+    return max(sevs, key=lambda s: _SEVERITY_RANK.get(s, 0), default="warning")
+
+
+def _findings_json(findings: Any) -> list[dict]:
+    """Serialize scan() findings for the panel — counts + resolved action, never the raw value."""
+    return [
+        {"category": f.category, "group": f.group, "severity": f.severity,
+         "action": f.action, "count": f.count}
+        for f in findings
+    ]
+
+
+def _detect(session: Session, text: str) -> dict:
+    """acttrace 1.1 detection & policy on the RAW input (before squeeze/assembly). Scans against the
+    session's Policy; the app ENFORCES (block pre-flight / scrub-before-send) while acttrace RECORDS
+    a tamper-evident policy_flag for every non-allow action. Returns the resolved actions plus a
+    safe (redacted) copy of the text — scan()/redact() never expose the offending value."""
+    findings = scan(text, session.policy)
+    block_cats = sorted({f.category for f in findings if f.action == "block"})
+    redact_cats = sorted({f.category for f in findings if f.action == "redact"})
+    flag_cats = sorted({f.category for f in findings if f.action == "flag"})
+    detection = {
+        "policy": session.policy_name,
+        "findings": _findings_json(findings),
+        "block_cats": block_cats,
+        "redact_cats": redact_cats,
+        "flag_cats": flag_cats,
+        "blocked": bool(block_cats),
+        "safe_text": text,
+        "redacted": False,
+    }
+    if block_cats:
+        session.audit.flag(
+            f"blocked {', '.join(block_cats)} in prompt",
+            action="blocked",
+            severity=_max_sev(f.severity for f in findings if f.action == "block"),
+            data=block_cats,
+        )
+        return detection  # nothing is sent; the caller short-circuits the turn
+    # redact-before-send: scrub the redact-action categories so the model (and stored history and
+    # any downloaded cassette) never carry the raw secret; record it on the chain.
+    if redact_cats:
+        detection["safe_text"], _ = redact(text, session.policy)
+        detection["redacted"] = True
+        session.audit.flag(
+            f"redacted {', '.join(redact_cats)} from prompt",
+            action="redacted",
+            severity="info",
+            data=redact_cats,
+        )
+    if flag_cats:
+        session.audit.flag(
+            f"flagged {', '.join(flag_cats)} in prompt",
+            action="flagged",
+            severity=_max_sev(f.severity for f in findings if f.action == "flag"),
+            data=flag_cats,
+        )
+    return detection
+
+
 def _run_turn(
     session: Session,
     display_text: str,
@@ -313,9 +396,14 @@ def _run_turn(
     key: str,
     cap: float,
     mode: str,
+    record_text: str | None = None,
 ) -> dict:
     """Run one chat turn through the full Cendor pipeline and mutate the session. Returns a dict of
-    what the panels should render (reply, block/downgrade status, the assembly report, events)."""
+    what the panels should render (reply, block/downgrade status, the assembly report, events).
+
+    ``record_text`` is the (possibly redacted) prompt stored in a downloaded cassette; it defaults
+    to ``display_text`` so the recorded session never leaks a secret the policy scrubbed."""
+    record_text = display_text if record_text is None else record_text
     model = (
         DEMO_MODEL
         if run_mode == "Demo"
@@ -393,7 +481,7 @@ def _run_turn(
             ev = captured[-1]
             session.recorded.append(
                 {
-                    "user": display_text,
+                    "user": record_text,
                     "request": {
                         "provider": ev["provider"],
                         "model": ev["model"],
@@ -412,85 +500,120 @@ def _run_turn(
 
 
 def _render_budget(session: Session, cap: float, result: dict | None) -> str:
+    """The tokenguard spend bar: a filled track with the cap marked, matching the site's demo."""
     spent = float(session.spent_usd)
     cap = max(float(cap), 1e-9)
     pct = min(100.0, 100.0 * spent / cap)
     blocked = bool(result and result.get("blocked"))
     reroute = result.get("reroute") if result else None
-    fill = "#DC2626" if blocked else BLUE
+    hue = HUE["tokenguard"]
+    fill = "#F43F5E" if blocked else hue
     banner = ""
     if blocked:
         banner = (
-            "<div class='cendor-banner cendor-block'>⛔ <b>BudgetExceeded</b> — blocked "
-            "pre-flight, $0 spent. The over-budget call never ran.</div>"
+            "<div class='cd-banner cd-block'>⛔ <b>BudgetExceeded</b> — blocked pre-flight, "
+            "$0 spent. The over-budget call never ran.</div>"
         )
     elif reroute:
         banner = (
-            "<div class='cendor-banner cendor-reroute'>↘ <b>Downgraded</b> — "
+            "<div class='cd-banner cd-reroute'>↘ <b>Downgraded</b> — "
             f"{escape(reroute[0])} → {escape(reroute[1])} to stay under cap ($0 extra).</div>"
         )
     return (
-        f"<div class='cendor-num'>${spent:.4f} / ${cap:.2f} &nbsp;({pct:.0f}%)</div>"
-        f"<div class='cendor-bar'><div class='cendor-bar-fill' style='width:{pct:.1f}%;"
-        f"background:{fill}'></div></div>{banner}"
+        f"<div class='cd-barmeta'><span>spent <b>${spent:.4f}</b> / ${cap:.2f}</span>"
+        f"<span>{pct:.0f}%</span></div>"
+        f"<div class='cd-track'><div class='cd-fill' style='width:{pct:.1f}%;"
+        f"--fh:{fill}'></div><div class='cd-capmark'><span>cap ${cap:.2f}</span></div></div>"
+        f"{banner}"
     )
 
 
-def _render_receipt(result: dict | None) -> tuple[list[list[str]], str]:
+def _render_receipt(result: dict | None) -> str:
+    """The contextkit assembly receipt, as the site's mono table: block · action · tokens."""
     if not result or "report" not in result:
-        return [], ""
+        return "<div class='cd-empty'>Send a message — the packed context receipt lands here.</div>"
     report = result["report"]
-    rows = [
-        [d.role, d.action, f"{d.tokens_before:,} → {d.tokens_after:,}"] for d in report.decisions
-    ]
-    room = report.budget - report.reserved_output
-    ok = "✓" if report.used <= room else "✗"
-    caption = (
-        f"<div class='cendor-num'>used {report.used:,} / budget {report.budget:,} "
-        f"(−{report.reserved_output:,} output reserve) &nbsp;{ok}</div>"
+    rows = "".join(
+        f"<div class='cd-row'><div class='cd-tag'>{escape(d.role)}</div>"
+        f"<div class='cd-act cd-act-{escape(d.action)}'>{escape(d.action)}</div>"
+        f"<div class='cd-num'>{d.tokens_before:,} → {d.tokens_after:,}</div></div>"
+        for d in report.decisions
     )
-    return rows, caption
+    room = report.budget - report.reserved_output
+    ok = report.used <= room
+    mark = "✓" if ok else "✗"
+    foot = (
+        f"<div class='cd-foot {'cd-ok' if ok else 'cd-bad'}'>used {report.used:,} / "
+        f"{report.budget:,} tok (−{report.reserved_output:,} reserved) {mark}</div>"
+    )
+    head = "<div class='cd-row cd-hd'><div>block</div><div>action</div><div>tokens</div></div>"
+    return f"<div class='cd-table'>{head}{rows}</div>{foot}"
 
 
 def _render_compression(comp: dict | None) -> str:
     if not comp:
         return (
-            "<div class='cendor-muted'>No compression this turn. Paste more than "
-            f"{COMPRESS_THRESHOLD:,} characters to squeeze it before sending.</div>"
+            "<div class='cd-empty'>No compression this turn. Paste more than "
+            f"{COMPRESS_THRESHOLD:,} characters and squeeze runs before the send.</div>"
         )
     ok = "byte-for-byte identical ✓" if comp["restored_ok"] else "restore FAILED ✗"
     return (
-        f"<div class='cendor-num'>{comp['before']:,} → {comp['after']:,} tokens "
-        f"({comp['pct']:.0f}% smaller)</div>"
-        f"<div class='cendor-muted'>technique: {escape(comp['kind'])} · Expand() → {ok}</div>"
+        f"<div class='cd-big'>{comp['before']:,} → {comp['after']:,} "
+        f"<span class='cd-dim'>tokens</span> "
+        f"<span class='cd-pct'>({comp['pct']:.0f}% smaller)</span></div>"
+        f"<div class='cd-sub'>technique <b>{escape(comp['kind'])}</b> · expand() → {ok}</div>"
     )
 
 
 def _render_bus(session: Session) -> str:
+    """The core bus feed — one normalized LLMCall card per call, newest first (site .ev-card)."""
     if not session.events:
-        return "<div class='cendor-muted'>No calls yet — send a message.</div>"
+        return "<div class='cd-empty'>The bus is quiet — send a message to make a call.</div>"
     cards = []
     for ev in reversed(session.events):
-        badges = f"<span class='cendor-tag'>{escape(ev['label'])}</span>"
+        cost = "$0.00 · replay" if ev["replayed"] else f"${ev['cost']}"
+        tail = "" if ev["replayed"] else f" <span class='ev-dim'>({escape(ev['label'])})</span>"
         if ev["rerouted"]:
-            badges += "<span class='cendor-tag cendor-tag-blue'>rerouted</span>"
-        if ev["replayed"]:
-            badges += "<span class='cendor-tag cendor-tag-blue'>replay · $0</span>"
+            tail += " <span class='ev-dim'>· rerouted</span>"
         cards.append(
-            "<div class='cendor-card'>"
-            f"<div class='cendor-num'>{escape(ev['provider'])} · {escape(ev['model'])}</div>"
-            f"<div class='cendor-muted'>{ev['input']:,} in + {ev['output']:,} out · "
-            f"${ev['cost']}</div>{badges}</div>"
+            "<div class='ev-card'><div class='ev-line'>"
+            f"<span class='ev-k'>LLMCall</span> · {escape(ev['provider'])} · "
+            f"{escape(ev['model'])} · {ev['input']:,} → {ev['output']:,} tok · "
+            f"<span class='ev-cost'>{cost}</span>{tail}</div></div>"
         )
     return "".join(cards)
 
 
-def _render_audit(session: Session) -> str:
-    return (
-        f"<div class='cendor-num'>hash-chain entries: {len(session.audit.entries)}</div>"
-        f"<div class='cendor-muted'>system: {escape(session.audit.system)} · risk_tier: "
-        f"{escape(session.audit.risk_tier)} · signed</div>"
+def _render_audit(session: Session, result: dict | None = None) -> str:
+    """The acttrace panel: hash-chain length + the active policy, plus this turn's scan findings
+    (category · resolved action · count) when detection fired."""
+    base = (
+        f"<div class='cd-big'>{len(session.audit.entries)} "
+        f"<span class='cd-dim'>hash-chain entries</span></div>"
+        f"<div class='cd-sub'>system <b>{escape(session.audit.system)}</b> · risk_tier "
+        f"<b>{escape(session.audit.risk_tier)}</b> · policy <b>{escape(session.policy_name)}</b> · "
+        "signed</div>"
     )
+    det = result.get("detection") if result else None
+    if not det or not det["findings"]:
+        return base
+    rows = "".join(
+        f"<div class='cd-row'><div class='cd-tag'>{escape(f['category'])}</div>"
+        f"<div class='cd-act cd-act-{_ACT_CLASS.get(f['action'], 'kept')}'>"
+        f"{escape(f['action'])}</div><div class='cd-num'>×{f['count']}</div></div>"
+        for f in det["findings"]
+    )
+    head = "<div class='cd-row cd-hd'><div>category</div><div>action</div><div>count</div></div>"
+    if det["block_cats"]:
+        note = "<div class='cd-foot cd-bad'>blocked pre-flight — $0 spent, nothing sent ✗</div>"
+    elif det["redacted"]:
+        note = (
+            "<div class='cd-foot cd-ok'>redacted before send — the model never saw the raw "
+            "value ✓</div>"
+        )
+    else:
+        note = "<div class='cd-foot'>flagged on the tamper-evident chain</div>"
+    return f"{base}<div class='cd-table' style='margin-top:12px'>{head}{rows}</div>{note}"
 
 
 # --------------------------------------------------------------------------- event handlers
@@ -504,9 +627,13 @@ def on_submit(
     key: str,
     cap: float,
     mode: str,
+    policy_name: str = "default",
 ) -> tuple:
     session = _session(sid)
     cap = _cap(cap)
+    # Keep the session's acttrace policy in sync with the panel dropdown (resolved fresh each turn).
+    session.policy_name = policy_name if policy_name in POLICY_PRESETS else "default"
+    session.policy = POLICY_PRESETS[session.policy_name]()
     user_msg = (user_msg or "").strip()
     if not user_msg:
         return _panels(session, None, cap)
@@ -530,38 +657,61 @@ def on_submit(
         if run_mode == "Demo"
         else (OPENAI_MODEL if provider == "OpenAI" else ANTHROPIC_MODEL)
     )
-    content = user_msg
+
+    # acttrace detection & policy first: scan the raw prompt, then block or scrub *before* anything
+    # is compressed, assembled, or sent to the model.
+    detection = _detect(session, user_msg)
+    if detection["blocked"]:
+        session.transcript.append({"role": "user", "content": user_msg})
+        session.transcript.append(
+            {
+                "role": "assistant",
+                "content": (
+                    f"⛔ **Blocked by policy** — the `{detection['policy']}` policy blocks "
+                    f"{', '.join(detection['block_cats'])} in a prompt. Nothing was sent to the "
+                    "model; $0 spent. acttrace recorded a tamper-evident "
+                    "policy_flag(action=blocked)."
+                ),
+            }
+        )
+        return _panels(session, {"policy_block": True, "detection": detection}, cap)
+
+    # Everything downstream uses the redacted copy, so the secret never reaches the model, the
+    # stored history, or a downloaded cassette. The chat bubble still shows what the user typed.
+    send_text = detection["safe_text"]
+    content = send_text
     session.last_compression = None
-    if len(user_msg) > COMPRESS_THRESHOLD:
-        small, handle = compress(user_msg, kind="auto", target_tokens=COMPRESS_TARGET_TOKENS)
-        before = tokens.count(user_msg, active_model)
+    if len(send_text) > COMPRESS_THRESHOLD:
+        small, handle = compress(send_text, kind="auto", target_tokens=COMPRESS_TARGET_TOKENS)
+        before = tokens.count(send_text, active_model)
         after = tokens.count(small, active_model)
         session.last_compression = {
             "handle": handle,
-            "original": user_msg,
+            "original": send_text,
             "before": before,
             "after": after,
             "pct": 100.0 * (1 - after / before) if before else 0.0,
             "kind": handle.kind,
-            "restored_ok": handle.expand() == user_msg,
+            "restored_ok": handle.expand() == send_text,
         }
         content = small
 
-    result = _run_turn(session, user_msg, content, run_mode, provider, key, cap, mode)
+    result = _run_turn(
+        session, user_msg, content, run_mode, provider, key, cap, mode, record_text=send_text
+    )
+    result["detection"] = detection
     return _panels(session, result, cap)
 
 
 def _panels(session: Session, result: dict | None, cap: float) -> tuple:
-    rows, caption = _render_receipt(result)
     return (
         session.transcript,
         "",
         _render_budget(session, cap, result),
-        rows,
-        caption,
+        _render_receipt(result),
         _render_compression(session.last_compression),
         _render_bus(session),
-        _render_audit(session),
+        _render_audit(session, result),
         session.sid,
     )
 
@@ -577,6 +727,15 @@ def _cap(cap: float | None) -> float:
 
 def on_cap_change(cap: float, sid: str | None) -> str:
     return _render_budget(_session(sid), _cap(cap), None)
+
+
+def on_policy_change(policy_name: str, sid: str | None) -> tuple[str, str]:
+    """Switch the acttrace detection preset and re-render the Audit panel. Returns the session id so
+    the (possibly freshly created) session persists in gr.State for the next turn."""
+    session = _session(sid)
+    session.policy_name = policy_name if policy_name in POLICY_PRESETS else "default"
+    session.policy = POLICY_PRESETS[session.policy_name]()
+    return _render_audit(session), session.sid
 
 
 def on_expand(sid: str | None) -> str:
@@ -785,17 +944,19 @@ def on_upload(file_path: Any, sid: str | None) -> tuple:
     )
 
 
-def on_reset(sid: str | None) -> tuple:
+def on_reset(sid: str | None, policy_name: str = "default") -> tuple:
     if sid and sid in SESSIONS:
         old = SESSIONS.pop(sid)
         old.audit.detach()
     session = _new_session()
+    # The dropdown keeps its value across a reset, so carry the chosen policy onto the new session.
+    session.policy_name = policy_name if policy_name in POLICY_PRESETS else "default"
+    session.policy = POLICY_PRESETS[session.policy_name]()
     return (
         session.transcript,
         "",
         _render_budget(session, DEFAULT_CAP, None),
-        [],
-        "",
+        _render_receipt(None),
         _render_compression(None),
         _render_bus(session),
         _render_audit(session),
@@ -812,37 +973,132 @@ def on_mode_change(run_mode: str) -> tuple:
 
 # --------------------------------------------------------------------------- UI
 
-_CSS = """
-.cendor-num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-variant-numeric: tabular-nums; color: #E2E8F0; font-size: 0.9rem; }
-.cendor-muted { font-family: ui-monospace, Menlo, Consolas, monospace; color: #94A3B8;
-  font-size: 0.8rem; margin-top: 2px; }
-.cendor-bar { height: 12px; background: #111C30; border-radius: 6px; margin: 6px 0;
-  overflow: hidden; border: 1px solid #334155; }
-.cendor-bar-fill { height: 100%; transition: width .25s ease; }
-.cendor-banner { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 0.85rem; }
-.cendor-block { background: rgba(220,38,38,.15); border: 1px solid #DC2626; color: #FCA5A5; }
-.cendor-reroute { background: rgba(37,99,235,.15); border: 1px solid #2563EB; color: #93C5FD; }
-.cendor-card { background: #111C30; border: 1px solid #334155; border-radius: 8px;
-  padding: 8px 10px; margin-bottom: 6px; }
-.cendor-tag { display: inline-block; margin-top: 6px; margin-right: 4px; padding: 1px 8px;
-  border-radius: 999px; font-size: 0.72rem; background: #334155; color: #CBD5E1;
-  font-family: ui-monospace, Menlo, monospace; }
-.cendor-tag-blue { background: #2563EB; color: #fff; }
-"""
+# The Cendor starburst (Mark 3): 6 line segments + 4 diagonal dots + 1 blue hub, matching the
+# site's Logo.astro. The vertical arm is a plain gapped stroke (no end dots); only the four
+# diagonal branches are capped. White on the app's fixed navy topbar; the hub stays blue.
+_LOGO_SVG = (
+    "<svg width='30' height='30' viewBox='0 0 44 44' aria-hidden='true'>"
+    "<g stroke='#fff' stroke-width='2.4' stroke-linecap='round'>"
+    "<line x1='22' y1='5' x2='22' y2='14'/><line x1='22' y1='30' x2='22' y2='39'/>"
+    "<line x1='7.3' y1='13.5' x2='15' y2='18'/><line x1='29' y1='26' x2='36.7' y2='30.5'/>"
+    "<line x1='7.3' y1='30.5' x2='15' y2='26'/><line x1='29' y1='18' x2='36.7' y2='13.5'/></g>"
+    "<circle cx='7.3' cy='13.5' r='2.6' fill='#fff'/>"
+    "<circle cx='36.7' cy='30.5' r='2.6' fill='#fff'/>"
+    "<circle cx='7.3' cy='30.5' r='2.6' fill='#fff'/>"
+    "<circle cx='36.7' cy='13.5' r='2.6' fill='#fff'/>"
+    "<circle cx='22' cy='22' r='5.4' fill='#2563EB'/></svg>"
+)
+
+_HEADER = (
+    "<div class='cd-topbar'><div class='cd-brand'>" + _LOGO_SVG + "<span class='cd-word'>CENDOR"
+    "</span><span class='cd-slash'>/</span><span class='cd-page'>chat playground</span></div>"
+    "<div class='cd-tagline'>the plumbing, made visible — every turn</div></div>"
+)
 
 _HONEST_LABEL = (
-    "**Demo model** — canned replies priced as `gpt-4o`. Everything except the reply text is real "
-    "Cendor. Connect a key for a live one."
+    "<div class='cd-honest'><b>Demo model</b> — canned replies priced as "
+    "<code>gpt-4o</code>. Everything except the reply text is real Cendor. "
+    "Connect a key for a live one.</div>"
 )
+
+# Ported from cendor-site/src/styles/global.css + the library-demo components, scoped to this app.
+_CSS = (
+    font_face_css()
+    + """
+:root { --hue: #3B82F6; }
+.cd-mono, .cd-num, .cd-big, .cd-eyebrow, .cd-barmeta, .cd-row, .cd-foot, .ev-line, .cd-capmark span,
+.cd-empty { font-family: "JetBrains Mono","Cascadia Code","SF Mono",Consolas,monospace;
+  font-variant-numeric: tabular-nums; }
+
+/* ── top bar ─────────────────────────────────────────────── */
+.cd-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  gap:10px; padding:6px 4px 18px; border-bottom:1px solid rgba(148,163,187,.16);
+  margin-bottom:6px; }
+.cd-brand { display:flex; align-items:center; gap:10px; }
+.cd-word { font-family:"Manrope",system-ui,sans-serif; font-weight:800; letter-spacing:.14em;
+  font-size:19px; color:#fff; }
+.cd-slash { color:#5F7189; font-weight:400; }
+.cd-page { font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.18em;
+  text-transform:uppercase; color:#3B82F6; }
+.cd-tagline { font-family:"JetBrains Mono",monospace; font-size:12px; color:#94A3BB; }
+.cd-honest { font-size:13px; color:#94A3BB; margin:2px 2px 10px; }
+.cd-honest b { color:#E5E7EB; }
+.cd-honest code { font-family:"JetBrains Mono",monospace; font-size:12px; color:#7DB4FF;
+  background:#0A101F; padding:1px 6px; border-radius:5px; }
+
+/* ── panel headers (per-library eyebrow) ─────────────────── */
+.cd-panel { border-top:2px solid var(--hue) !important; }
+.cd-tokenguard { --hue:#8B5CF6; } .cd-contextkit { --hue:#3B82F6; }
+.cd-squeeze { --hue:#22C55E; } .cd-cassette { --hue:#14B8A6; }
+.cd-acttrace { --hue:#F43F5E; } .cd-core { --hue:#94A3BB; }
+.cd-head { padding:2px 2px 4px; }
+.cd-eyebrow { font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--hue);
+  font-weight:700; }
+.cd-h { font-family:"Manrope",system-ui,sans-serif; font-weight:700; font-size:15px; color:#fff;
+  margin-top:2px; }
+
+/* ── generic bits ────────────────────────────────────────── */
+.cd-num { color:#E5E7EB; font-size:13px; }
+.cd-big { color:#fff; font-size:19px; font-weight:700; }
+.cd-big .cd-dim { color:#5F7189; font-size:13px; font-weight:400; }
+.cd-pct { color:#22C55E; font-size:14px; }
+.cd-sub { color:#94A3BB; font-size:12.5px; margin-top:4px; font-family:"JetBrains Mono",monospace; }
+.cd-sub b { color:#E5E7EB; }
+.cd-empty { font-size:12.5px; color:#5F7189; padding:14px 2px; }
+
+/* ── budget bar (tokenguard) ─────────────────────────────── */
+.cd-barmeta { display:flex; justify-content:space-between; font-size:12px; color:#94A3BB;
+  margin-bottom:8px; }
+.cd-barmeta b { color:#E5E7EB; }
+.cd-track { position:relative; height:22px; background:#0B1220;
+  border:1px solid rgba(148,163,187,.16); border-radius:8px; margin-top:14px; }
+.cd-fill { position:absolute; top:0; bottom:0; left:0; width:0;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--fh) 45%, transparent), var(--fh));
+  border-radius:7px 0 0 7px; transition:width .35s ease; }
+.cd-capmark { position:absolute; right:0; top:-7px; bottom:-7px; width:2px; background:#8B5CF6;
+  border-radius:2px; }
+.cd-capmark span { position:absolute; top:-20px; right:0; font-size:10px; color:#8B5CF6;
+  white-space:nowrap; font-weight:700; }
+.cd-banner { margin-top:16px; padding:10px 12px; border-radius:8px; font-size:13px; }
+.cd-block { background:rgba(244,63,94,.13); border:1px solid #F43F5E; color:#FDA4AF; }
+.cd-reroute { background:rgba(139,92,246,.13); border:1px solid #8B5CF6; color:#C4B5FD; }
+.cd-banner b { color:#fff; }
+
+/* ── receipt table (contextkit) ──────────────────────────── */
+.cd-table { border:1px solid rgba(148,163,187,.16); border-radius:10px; overflow:hidden; }
+.cd-row { display:grid; grid-template-columns:1fr .9fr 1.1fr; border-bottom:1px solid
+  rgba(148,163,187,.09); background:#111C33; }
+.cd-row:last-child { border-bottom:0; }
+.cd-row.cd-hd { background:#0B1220; font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:#94A3BB; }
+.cd-row > div { padding:9px 12px; font-size:12.5px; }
+.cd-tag { color:#3B82F6; }
+.cd-act-kept { color:#94A3BB; } .cd-act-truncated { color:#F59E0B; }
+.cd-act-dropped { color:#F43F5E; } .cd-act-compressed { color:#22C55E; }
+.cd-num { color:#E5E7EB; }
+.cd-foot { margin-top:10px; font-size:12px; color:#94A3BB; }
+.cd-foot.cd-ok { color:#22C55E; } .cd-foot.cd-bad { color:#F43F5E; }
+
+/* ── bus feed (core) ─────────────────────────────────────── */
+.ev-card { background:#111C33; border:1px solid rgba(148,163,187,.09); border-radius:9px;
+  padding:11px 14px; margin-bottom:8px; }
+.ev-line { font-size:12px; line-height:1.6; color:#C6D3E8; word-break:break-word; }
+.ev-k { color:#3B82F6; font-weight:700; } .ev-cost { color:#10B981; } .ev-dim { color:#5F7189; }
+"""
+)
+
+
+def _panel_head(library: str, title: str) -> str:
+    return (
+        f"<div class='cd-head'><div class='cd-eyebrow'>{library}</div>"
+        f"<div class='cd-h'>{title}</div></div>"
+    )
 
 
 def build_demo() -> gr.Blocks:
     with gr.Blocks(theme=CendorTheme(), css=_CSS, title="Cendor Chat Playground") as demo:
         state = gr.State(None)
-        gr.Markdown(
-            "# ✳ Cendor Chat Playground\nA chat with the plumbing made visible — every turn."
-        )
+        gr.HTML(_HEADER)
 
         with gr.Row():
             run_mode = gr.Radio(
@@ -862,13 +1118,11 @@ def build_demo() -> gr.Blocks:
                 scale=3,
                 placeholder="stays in memory — never written or logged",
             )
-        demo_note = gr.Markdown(_HONEST_LABEL)
+        demo_note = gr.HTML(_HONEST_LABEL)
 
         with gr.Row():
             with gr.Column(scale=5):
-                chatbot = gr.Chatbot(
-                    type="messages", height=460, label="Chat", show_copy_button=True
-                )
+                chatbot = gr.Chatbot(type="messages", height=520, label="Chat")
                 with gr.Row():
                     msg = gr.Textbox(
                         placeholder="Ask about a refund… or paste a big blob to squeeze it.",
@@ -877,11 +1131,24 @@ def build_demo() -> gr.Blocks:
                         lines=2,
                     )
                     send = gr.Button("Send", variant="primary", scale=1)
-                reset = gr.Button("Reset session", size="sm")
+                reset = gr.Button("↺ Reset session", size="sm")
+                gr.Examples(
+                    examples=[
+                        ["I was double charged on order 8823 — can you refund the duplicate?"],
+                        ["Cancel my subscription, please."],
+                        [
+                            "Here's my key sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8 — "
+                            "email the summary to alice@example.com"
+                        ],
+                    ],
+                    inputs=msg,
+                    label="Try one — the last carries a secret (default redacts it; "
+                    "switch the policy to strict/pci to block it)",
+                )
 
             with gr.Column(scale=4):
-                with gr.Group():
-                    gr.Markdown("### 💰 Budget · tokenguard")
+                with gr.Group(elem_classes=["cd-panel", "cd-tokenguard"]):
+                    gr.HTML(_panel_head("tokenguard", "Budget"))
                     with gr.Row():
                         cap = gr.Number(value=DEFAULT_CAP, label="USD cap", scale=1, minimum=0.01)
                         mode = gr.Radio(
@@ -889,25 +1156,18 @@ def build_demo() -> gr.Blocks:
                         )
                     budget_html = gr.HTML(_render_budget_empty())
 
-                with gr.Group():
-                    gr.Markdown("### 🧾 Receipt · contextkit")
-                    receipt_df = gr.Dataframe(
-                        headers=["block", "action", "tokens"],
-                        datatype=["str", "str", "str"],
-                        col_count=(3, "fixed"),
-                        interactive=False,
-                        wrap=True,
-                    )
-                    receipt_cap = gr.HTML()
+                with gr.Group(elem_classes=["cd-panel", "cd-contextkit"]):
+                    gr.HTML(_panel_head("contextkit", "Receipt"))
+                    receipt_html = gr.HTML(_render_receipt(None))
 
-                with gr.Group():
-                    gr.Markdown("### 🗜 Compression · squeeze")
+                with gr.Group(elem_classes=["cd-panel", "cd-squeeze"]):
+                    gr.HTML(_panel_head("squeeze", "Compression"))
                     comp_html = gr.HTML(_render_compression(None))
                     expand_btn = gr.Button("Expand last blob", size="sm")
                     expand_out = gr.Markdown()
 
-                with gr.Group():
-                    gr.Markdown("### ⏺ Recorder · cassette")
+                with gr.Group(elem_classes=["cd-panel", "cd-cassette"]):
+                    gr.HTML(_panel_head("cassette", "Recorder"))
                     record = gr.Checkbox(value=False, label="Record this session")
                     with gr.Row():
                         replay_btn = gr.Button("▶ Replay offline", size="sm")
@@ -921,8 +1181,15 @@ def build_demo() -> gr.Blocks:
                     recorder_status = gr.Markdown("Idle. Toggle Record on to capture turns.")
                     cassette_file = gr.File(label="cassette", interactive=False)
 
-                with gr.Group():
-                    gr.Markdown("### 🔗 Audit · acttrace")
+                with gr.Group(elem_classes=["cd-panel", "cd-acttrace"]):
+                    gr.HTML(_panel_head("acttrace", "Audit"))
+                    policy_dd = gr.Dropdown(
+                        POLICY_NAMES,
+                        value="default",
+                        label="detection policy",
+                        info="every prompt is scanned offline; each hit is blocked, redacted, or "
+                        "flagged per preset",
+                    )
                     audit_html = gr.HTML(_render_audit_empty())
                     with gr.Row():
                         export_btn = gr.Button("Export evidence", size="sm")
@@ -931,8 +1198,8 @@ def build_demo() -> gr.Blocks:
                     audit_status = gr.Markdown()
                     evidence_file = gr.File(label="evidence pack", interactive=False)
 
-                with gr.Group():
-                    gr.Markdown("### 📡 Bus feed · core")
+                with gr.Group(elem_classes=["cd-panel", "cd-core"]):
+                    gr.HTML(_panel_head("core", "Bus feed"))
                     bus_html = gr.HTML(_render_bus_empty())
 
         # wiring
@@ -940,20 +1207,20 @@ def build_demo() -> gr.Blocks:
             chatbot,
             msg,
             budget_html,
-            receipt_df,
-            receipt_cap,
+            receipt_html,
             comp_html,
             bus_html,
             audit_html,
             state,
         ]
-        submit_in = [msg, state, run_mode, provider, key, cap, mode]
+        submit_in = [msg, state, run_mode, provider, key, cap, mode, policy_dd]
         send.click(on_submit, submit_in, panel_out)
         msg.submit(on_submit, submit_in, panel_out)
 
         run_mode.change(on_mode_change, run_mode, [provider, key])
         run_mode.change(lambda m: gr.update(visible=(m == "Demo")), run_mode, demo_note)
         cap.change(on_cap_change, [cap, state], budget_html)
+        policy_dd.change(on_policy_change, [policy_dd, state], [audit_html, state])
 
         expand_btn.click(on_expand, state, expand_out)
         record.change(on_record_toggle, [record, state], recorder_status)
@@ -970,13 +1237,12 @@ def build_demo() -> gr.Blocks:
 
         reset.click(
             on_reset,
-            state,
+            [state, policy_dd],
             [
                 chatbot,
                 msg,
                 budget_html,
-                receipt_df,
-                receipt_cap,
+                receipt_html,
                 comp_html,
                 bus_html,
                 audit_html,
@@ -990,21 +1256,23 @@ def build_demo() -> gr.Blocks:
 
 def _render_budget_empty() -> str:
     return (
-        f"<div class='cendor-num'>$0.0000 / ${DEFAULT_CAP:.2f} &nbsp;(0%)</div>"
-        f"<div class='cendor-bar'><div class='cendor-bar-fill' style='width:0%;background:{BLUE}'>"
-        "</div></div>"
+        f"<div class='cd-barmeta'><span>spent <b>$0.0000</b> / ${DEFAULT_CAP:.2f}</span>"
+        "<span>0%</span></div>"
+        "<div class='cd-track'><div class='cd-fill' style='width:0%;--fh:#8B5CF6'></div>"
+        f"<div class='cd-capmark'><span>cap ${DEFAULT_CAP:.2f}</span></div></div>"
     )
 
 
 def _render_audit_empty() -> str:
     return (
-        "<div class='cendor-num'>hash-chain entries: 1</div>"
-        "<div class='cendor-muted'>system: chat_playground · risk_tier: limited · signed</div>"
+        "<div class='cd-big'>1 <span class='cd-dim'>hash-chain entries</span></div>"
+        "<div class='cd-sub'>system <b>chat_playground</b> · risk_tier <b>limited</b> · "
+        "policy <b>default</b> · signed</div>"
     )
 
 
 def _render_bus_empty() -> str:
-    return "<div class='cendor-muted'>No calls yet — send a message.</div>"
+    return "<div class='cd-empty'>The bus is quiet — send a message to make a call.</div>"
 
 
 if __name__ == "__main__":
