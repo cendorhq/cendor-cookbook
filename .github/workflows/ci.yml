@@ -23,8 +23,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -39,8 +39,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --python ${{ matrix.python }}
       - name: run every quickstart offline
         run: |
@@ -58,8 +58,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --python ${{ matrix.python }}
       - name: run every provider recipe offline
         run: |
@@ -84,8 +84,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - name: run ${{ matrix.framework.name }} recipe offline
         # `uv run --group` installs ONLY this framework's SDK group (+ base), keeping frameworks
         # isolated — a break in one framework's release turns just this cell red.
@@ -104,8 +104,8 @@ jobs:
         python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --python ${{ matrix.python }}
       - name: pytest the cassette suite under xdist (0 API calls)
         run: uv run --python ${{ matrix.python }} pytest recipes/testing -n auto
@@ -117,8 +117,8 @@ jobs:
         python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --python ${{ matrix.python }}
       - name: run the EU AI Act evidence walkthrough offline
         run: uv run --python ${{ matrix.python }} python recipes/governance/eu-ai-act-evidence/main.py
@@ -136,8 +136,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --python ${{ matrix.python }}
       - name: run every SDK recipe offline
         run: |
@@ -159,8 +159,8 @@ jobs:
     env:
       GRADIO_ANALYTICS_ENABLED: "False"
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - name: import app + construct theme (smoke)
         run: |
           uv run --python ${{ matrix.python }} --group apps python -c "
