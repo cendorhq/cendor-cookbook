@@ -4,11 +4,11 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
 
-Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/Cendor) — production plumbing
+Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/cendor-libs) — production plumbing
 for LLM apps (cost, context, testing, governance) — works with the frameworks and providers you
 already use. **Every recipe runs offline, with no API key.**
 
-Each recipe installs the shipped PyPI package (`cendor>=1.0,<2.0`) and drives it against a fake
+Each recipe installs the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drives it against a fake
 provider-shaped client, exactly the way Cendor's own test suite does — so there's nothing to sign
 up for and nothing to spend.
 
@@ -87,7 +87,7 @@ New recipes are welcome — the one hard rule is **it runs green offline, with n
 
 ## Links
 
-- **Library:** [github.com/cendorhq/Cendor](https://github.com/cendorhq/Cendor)
+- **Library:** [github.com/cendorhq/cendor-libs](https://github.com/cendorhq/cendor-libs)
 - **Site:** [cendor.ai](https://cendor.ai) · [cendor.ai/cookbook](https://cendor.ai/cookbook)
 - **Docs:** [docs.cendor.ai](https://docs.cendor.ai)
 

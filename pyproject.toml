@@ -1,5 +1,5 @@
 # Cendor Cookbook — a uv-managed project of copy-paste recipes (not a published package).
-# Recipes install the SHIPPED PyPI packages (cendor 1.0.x), never local source, and every
+# Recipes install the SHIPPED PyPI packages (cendor-libs 1.0.x), never local source, and every
 # recipe runs offline with no API key. Framework SDKs live in per-category dependency-groups
 # with upper bounds so one framework's breaking release can't turn the whole repo's CI red.
 [project]
@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
-  "cendor>=1.0,<2.0",
+  "cendor-libs>=1.0,<2.0",
   "cendor-core[tiktoken]>=1.1,<2.0",
   # The chat-playground app uses acttrace 1.1's detection engine (Policy/scan/redact); pin the
   # floor so a resolve can't fall back to 1.0 (which lacks that API).
