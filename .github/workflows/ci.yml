@@ -125,6 +125,28 @@ jobs:
       - name: pytest the governance recipe
         run: uv run --python ${{ matrix.python }} pytest recipes/governance
 
+  sdk:
+    # The cendor-sdk recipes (recipes/sdk/) — a governed agent, offline against a stub client.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run every SDK recipe offline
+        run: |
+          for f in recipes/sdk/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
+          done
+      - name: pytest the SDK recipes
+        run: uv run --python ${{ matrix.python }} pytest recipes/sdk
+
   apps:
     # The chat-playground app. Installs ONLY the `apps` group (gradio + provider SDKs) so a Gradio
     # breaking release turns just this cell red — never the recipes' jobs. Smoke-tests that the app

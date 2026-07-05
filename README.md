@@ -17,7 +17,7 @@ up for and nothing to spend.
 New to Cendor? The [**Chat Playground**](recipes/apps/chat-playground/) is a chat app that makes
 the whole plumbing layer visible on every turn — budget blocking, context packing, compression,
 record/replay, and a tamper-evident audit chain, all live in one UI. Open it in the cloud with one
-click, or run it locally:
+click — in Codespaces it **auto-starts** on the forwarded port 7860 — or run it locally:
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
 
@@ -66,10 +66,31 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
 | [pytest-cassette](recipes/testing/pytest-cassette/) | testing | An offline agent test suite that runs on a plane | `core` `cassette` | ✓ |
 | [eu-ai-act-evidence](recipes/governance/eu-ai-act-evidence/) | governance | A tamper-evident evidence pack for a high-risk decision | `core` `acttrace` | ✓ |
+| [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
 
 **RECORD** recipes ship green offline against a fake client and carry a `RECORD=1` path a
 maintainer runs once with a real key to capture a replayable cassette (secrets redacted on write).
 **Local** = also runs against a live local Ollama daemon with a one-line swap.
+
+## Run any recipe
+
+Every recipe is a folder with a `main.py` you can run directly. Quickstart, provider, SDK, and
+governance recipes run on the base install; framework recipes each need their own dependency group
+so a breaking release in one can't turn the others red:
+
+| Category | Command |
+|---|---|
+| quickstart / provider | `uv run python recipes/<category>/<name>/main.py` |
+| **sdk** | `uv run python recipes/sdk/<name>/main.py` |
+| governance | `uv run python recipes/governance/<name>/main.py` |
+| testing | `uv run pytest recipes/testing` |
+| frameworks · langchain | `uv run --group frameworks-langchain python recipes/frameworks/langchain/main.py` |
+| frameworks · openai-agents-sdk | `uv run --group frameworks-agents python recipes/frameworks/openai-agents-sdk/main.py` |
+| frameworks · llamaindex | `uv run --group frameworks-llamaindex python recipes/frameworks/llamaindex/main.py` |
+| frameworks · azure-foundry-otel | `uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel/main.py` |
+| apps · chat-playground | `uv run --group apps python recipes/apps/chat-playground/app.py` |
+
+Any recipe that ships a test file is also runnable via `uv run pytest recipes/<category>/<name>`.
 
 ## How offline works
 
