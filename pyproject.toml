@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
   "cendor-libs>=1.0,<2.0",
+  "cendor-sdk>=1.0,<2.0",          # the SDK recipes (recipes/sdk/) — pulls the same six libs
   "cendor-core[tiktoken]>=1.1,<2.0",
   # The chat-playground app uses acttrace 1.1's detection engine (Policy/scan/redact); pin the
   # floor so a resolve can't fall back to 1.0 (which lacks that API).
