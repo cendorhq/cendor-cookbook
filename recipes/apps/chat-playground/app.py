@@ -333,8 +333,13 @@ def _max_sev(sevs: Any) -> str:
 def _findings_json(findings: Any) -> list[dict]:
     """Serialize scan() findings for the panel — counts + resolved action, never the raw value."""
     return [
-        {"category": f.category, "group": f.group, "severity": f.severity,
-         "action": f.action, "count": f.count}
+        {
+            "category": f.category,
+            "group": f.group,
+            "severity": f.severity,
+            "action": f.action,
+            "count": f.count,
+        }
         for f in findings
     ]
 
