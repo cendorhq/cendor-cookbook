@@ -61,9 +61,7 @@ _AUDIT = 6
 
 # A prompt carrying a secret (API key) + PII (email). Under the default policy both are redacted
 # before send; under strict the api_key is blocked pre-flight.
-SECRET = (
-    "here's my key sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8 — email alice@example.com"
-)
+SECRET = "here's my key sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8 — email alice@example.com"
 
 
 def _blocked(session) -> bool:
