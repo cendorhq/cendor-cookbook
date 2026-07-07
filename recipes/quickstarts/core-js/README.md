@@ -24,7 +24,7 @@ LLMCall on the bus:
   provider : openai
   model    : gpt-4o
   usage    : 1200 in + 350 out = 1550 tokens
-  cost     : $0.006500000 (cost_estimated)
+  cost     : $0.0065 (cost_estimated)
   tokens   : counted via 'exact' for gpt-4o
 ```
 
