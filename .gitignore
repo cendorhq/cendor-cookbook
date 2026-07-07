@@ -8,7 +8,6 @@ __pycache__/
 build/
 dist/
 .eggs/
-plan/
 
 # Environments & tooling caches
 .venv/
@@ -19,6 +18,10 @@ plan/
 .coverage
 coverage.json
 htmlcov/
+node_modules/
+# npm lockfiles: like uv.lock below, not committed — the JS recipes pin @cendor/* ranges so
+# `npm install` re-resolves the current shipped minor each CI run (drift shows up as a red job).
+package-lock.json
 
 # uv lockfile — intentionally not committed so CI re-resolves the current shipped
 # packages each run (the weekly cron catches dependency drift). Recipes pin ranges,

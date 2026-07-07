@@ -23,8 +23,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -39,8 +39,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --python ${{ matrix.python }}
       - name: run every quickstart offline
         run: |
@@ -58,8 +58,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --python ${{ matrix.python }}
       - name: run every provider recipe offline
         run: |
@@ -84,8 +84,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - name: run ${{ matrix.framework.name }} recipe offline
         # `uv run --group` installs ONLY this framework's SDK group (+ base), keeping frameworks
         # isolated — a break in one framework's release turns just this cell red.
@@ -104,8 +104,8 @@ jobs:
         python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --python ${{ matrix.python }}
       - name: pytest the cassette suite under xdist (0 API calls)
         run: uv run --python ${{ matrix.python }} pytest recipes/testing -n auto
@@ -117,8 +117,8 @@ jobs:
         python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --python ${{ matrix.python }}
       - name: run the EU AI Act evidence walkthrough offline
         run: uv run --python ${{ matrix.python }} python recipes/governance/eu-ai-act-evidence/main.py
@@ -136,8 +136,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - run: uv sync --python ${{ matrix.python }}
       - name: run every SDK recipe offline
         run: |
@@ -159,8 +159,8 @@ jobs:
     env:
       GRADIO_ANALYTICS_ENABLED: "False"
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - name: import app + construct theme (smoke)
         run: |
           uv run --python ${{ matrix.python }} --group apps python -c "
@@ -170,3 +170,28 @@ jobs:
           print('apps smoke OK')"
       - name: offline plumbing tests
         run: uv run --python ${{ matrix.python }} --group apps pytest recipes/apps/chat-playground
+
+  js-recipes:
+    # The two TypeScript recipes (core-js, governed-agent-js). Each installs the published
+    # @cendor/* packages and runs offline against a fake client — no key, no network. This job
+    # is why a stale npm pin turns red instead of rotting silently.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: run every TypeScript recipe offline
+        run: |
+          for dir in recipes/quickstarts/core-js recipes/sdk/governed-agent-js; do
+            echo "::group::$dir"
+            (cd "$dir" && npm install && node index.mjs)
+            echo "::endgroup::"
+          done

@@ -17,3 +17,18 @@ updates:
     groups:
       python:
         patterns: ["*"]
+
+  # The two TypeScript recipes — each pins the published @cendor/* packages, so keep them
+  # current as new 0.x minors ship (this is the drift class that previously rotted silently).
+  - package-ecosystem: npm
+    directory: /recipes/quickstarts/core-js
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(deps)
+  - package-ecosystem: npm
+    directory: /recipes/sdk/governed-agent-js
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(deps)
