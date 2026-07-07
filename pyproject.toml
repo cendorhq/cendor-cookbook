@@ -50,10 +50,12 @@ frameworks-otel = [
 ]
 # The chat-playground app (recipes/apps/chat-playground). Gradio is pinned with an upper bound
 # so a Gradio breaking release turns only this group's CI cell red — never the recipes' jobs.
+# Held at <6: gradio 6 moved theme/css to launch() and dropped Chatbot(type=), which app.py uses —
+# migrating the app to gradio 6 is tracked separately.
 # The provider SDKs are optional (live mode only); demo mode needs neither, and app.py imports
 # them lazily so the group installs and imports fine without a key.
 apps = [
-  "gradio>=5,<7",
+  "gradio>=5,<6",
   "openai>=1.40,<3",
   "anthropic>=0.40,<1",
 ]
