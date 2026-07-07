@@ -24,9 +24,9 @@ package = false
 [dependency-groups]
 # Test/lint tooling shared by the testing/ and governance/ recipes and CI.
 dev = [
-  "pytest>=8,<9",
+  "pytest>=8,<10",
   "pytest-xdist>=3,<4",
-  "pytest-asyncio>=0.24,<0.30",
+  "pytest-asyncio>=0.24,<1.5",
   "ruff>=0.6,<1.0",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
@@ -40,7 +40,7 @@ frameworks-langchain = [
   "langgraph>=1.2,<2",
 ]
 frameworks-agents = [
-  "openai-agents>=0.17,<0.18",
+  "openai-agents>=0.17,<0.19",
 ]
 frameworks-llamaindex = [
   "llama-index-core>=0.14,<0.15",
@@ -53,7 +53,7 @@ frameworks-otel = [
 # The provider SDKs are optional (live mode only); demo mode needs neither, and app.py imports
 # them lazily so the group installs and imports fine without a key.
 apps = [
-  "gradio>=5,<6",
+  "gradio>=5,<7",
   "openai>=1.40,<3",
   "anthropic>=0.40,<1",
 ]
