@@ -5,6 +5,6 @@
   "description": "Cendor cookbook — @cendor/core quickstart (JS, offline).",
   "scripts": { "start": "node index.mjs" },
   "dependencies": {
-    "@cendor/core": "^0.2.0"
+    "@cendor/core": "^0.3.2"
   }
 }
