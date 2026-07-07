@@ -34,7 +34,11 @@ Then open the printed URL (default <http://127.0.0.1:7860>). No key required.
 ## Run it in the cloud
 
 Click the **Open in GitHub Codespaces** badge above. The devcontainer installs `uv`, runs
-`uv sync --group apps`, and forwards port `7860`; then in the terminal:
+`uv sync --group apps`, and **auto-starts the playground on the forwarded port `7860`** — a preview
+opens automatically once it's up (watch `/tmp/playground.log` for boot progress). No terminal step
+is needed.
+
+If you ever need to restart it (e.g. after editing the app):
 
 ```bash
 uv run --group apps python recipes/apps/chat-playground/app.py

@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/cendor-cookbook-banner-dark.png">
+    <img alt="cendor-cookbook" src=".github/assets/cendor-cookbook-banner-light.png" width="820">
+  </picture>
+</p>
+
 # Cendor Cookbook
 
 [![CI](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml)
@@ -8,9 +15,10 @@ Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/cendor-libs)
 for LLM apps (cost, context, testing, governance) — works with the frameworks and providers you
 already use. **Every recipe runs offline, with no API key.**
 
-Each recipe installs the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drives it against a fake
+Most recipes install the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drive it against a fake
 provider-shaped client, exactly the way Cendor's own test suite does — so there's nothing to sign
-up for and nothing to spend.
+up for and nothing to spend. Two recipes are the TypeScript twins (`core-js`, `governed-agent-js`);
+they install the published `@cendor/*` npm packages and run the same way with `node`.
 
 ## Start here: the Chat Playground
 
@@ -56,6 +64,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [cassette](recipes/quickstarts/cassette/) | quickstart | Record an agent call once, replay it forever offline | `core` `cassette` | ✓ |
 | [acttrace](recipes/quickstarts/acttrace/) | quickstart | Signed hash-chain; one edited byte breaks `verify` | `core` `acttrace` | ✓ |
 | [core](recipes/quickstarts/core/) | quickstart | One `instrument()` wrap → every call on a normalized bus | `core` | ✓ |
+| [core-js](recipes/quickstarts/core-js/) | quickstart · TS | The `core` quickstart in TypeScript — `@cendor/core` on npm, decimal-safe cost | `@cendor/core` | ✓ |
 | [openai-chat](recipes/providers/openai-chat/) | provider · RECORD | Pre-flight budget + attribution on Chat Completions | `core` `tokenguard` | ✓ |
 | [openai-responses](recipes/providers/openai-responses/) | provider · RECORD | Capture reasoning + cached tokens on the Responses API | `core` `tokenguard` | ✓ |
 | [anthropic](recipes/providers/anthropic/) | provider · RECORD | Price prompt-cache reads/writes correctly, audited | `core` `tokenguard` `acttrace` | ✓ |
@@ -67,6 +76,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [pytest-cassette](recipes/testing/pytest-cassette/) | testing | An offline agent test suite that runs on a plane | `core` `cassette` | ✓ |
 | [eu-ai-act-evidence](recipes/governance/eu-ai-act-evidence/) | governance | A tamper-evident evidence pack for a high-risk decision | `core` `acttrace` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
+| [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
 
 **RECORD** recipes ship green offline against a fake client and carry a `RECORD=1` path a
 maintainer runs once with a real key to capture a replayable cassette (secrets redacted on write).
@@ -74,14 +84,17 @@ maintainer runs once with a real key to capture a replayable cassette (secrets r
 
 ## Run any recipe
 
-Every recipe is a folder with a `main.py` you can run directly. Quickstart, provider, SDK, and
-governance recipes run on the base install; framework recipes each need their own dependency group
-so a breaking release in one can't turn the others red:
+Most recipes are a folder with a `main.py` you can run directly; the two TypeScript twins
+(`core-js`, `governed-agent-js`) are a folder with an `index.mjs` run with `node`. Quickstart,
+provider, SDK, and governance recipes run on the base install; framework recipes each need their
+own dependency group so a breaking release in one can't turn the others red:
 
 | Category | Command |
 |---|---|
 | quickstart / provider | `uv run python recipes/<category>/<name>/main.py` |
+| quickstart · TypeScript | `cd recipes/quickstarts/core-js && npm install && node index.mjs` |
 | **sdk** | `uv run python recipes/sdk/<name>/main.py` |
+| **sdk** · TypeScript | `cd recipes/sdk/governed-agent-js && npm install && node index.mjs` |
 | governance | `uv run python recipes/governance/<name>/main.py` |
 | testing | `uv run pytest recipes/testing` |
 | frameworks · langchain | `uv run --group frameworks-langchain python recipes/frameworks/langchain/main.py` |
@@ -114,7 +127,7 @@ New recipes are welcome — the one hard rule is **it runs green offline, with n
 
 ## License & disclaimer
 
-Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Copyright © 2026 Raghav Mishra.
+Apache-2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Copyright © 2026 Raghav Mishra (PowerAI Labs).
 
 > Provided **"AS IS", without warranties of any kind**; the authors carry no liability for use —
 > see Apache-2.0 §7–§8. In particular, `acttrace` produces **evidence to support** compliance —
