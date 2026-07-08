@@ -27,6 +27,7 @@ LLMCall on the bus:
 
 The cost is priced offline from the bundled snapshot and labeled `cost_estimated` (a gateway that
 reports real billed cost would show `cost_reported`). The token method is labeled honestly —
-`exact` here because `tiktoken` is installed; `heuristic` without it.
+`exact` here because `tiktoken` is a required dependency of `cendor-core` (exact counts by default);
+the `heuristic` tier is only a defensive fallback if `tiktoken` fails to import.
 
 Libraries: `core` · Offline ✓ · [← all recipes](../../../README.md)
