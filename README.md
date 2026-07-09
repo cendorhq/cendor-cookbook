@@ -79,8 +79,13 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [pii-guardrail](recipes/governance/pii-guardrail/) | governance | PII/secrets as a guardrail (`rules.custom` + acttrace) — redacted before send, in the audit chain | `core` `guardrails` `acttrace` | ✓ |
 | [llm-judge-guardrail](recipes/governance/llm-judge-guardrail/) | governance | A model-judge input screen whose own spend is budgeted + audited; cassette-replayed offline | `core` `guardrails` `tokenguard` `cassette` | ✓ |
 | [guardrails-policy](recipes/governance/guardrails-policy/) | governance | Config-as-data: `load_policy` from a versioned file; `policy_hash`/`version` on every decision proves which policy was active | `core` `guardrails` `acttrace` | ✓ |
+| [guardrails-redteam](recipes/governance/guardrails-redteam/) | governance | Measure a guardrail's trip rate + false positives against a labeled corpus (`run_redteam`) — a number, not a claim | `guardrails` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
 | [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
+| [openai-agents-guardrail](recipes/bridges/openai-agents-guardrail/) | bridges | A cendor Guardrail as an OpenAI Agents SDK `@input_guardrail` | `guardrails` + `openai-agents` | ✓ |
+| [claude-agent-pretooluse](recipes/bridges/claude-agent-pretooluse/) | bridges | A cendor Guardrail as a Claude Agent SDK `PreToolUse` hook (deny a tool call) | `guardrails` + `claude-agent-sdk` | ✓ |
+| [mcp-tool-gating](recipes/bridges/mcp-tool-gating/) | bridges | Gate a `FastMCP` server's tools with a cendor Guardrail at the tool boundary | `guardrails` + `mcp` | ✓ |
+| [langchain-middleware](recipes/bridges/langchain-middleware/) | bridges | A cendor Guardrail as a LangChain `before_model` agent middleware | `guardrails` + `langchain` | ✓ |
 
 **RECORD** recipes ship green offline against a fake client and carry a `RECORD=1` path a
 maintainer runs once with a real key to capture a replayable cassette (secrets redacted on write).

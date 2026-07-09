@@ -46,6 +46,14 @@ frameworks-langchain = [
 frameworks-agents = [
   "openai-agents>=0.17,<0.19",
 ]
+# Framework-bridge recipes (recipes/bridges/): expose a cendor Guardrail inside another framework's
+# own guardrail/hook seam. Offline — the recipes exercise the bridge directly, no model call.
+frameworks-mcp = [
+  "mcp>=1.28,<2",
+]
+frameworks-claude-agent = [
+  "claude-agent-sdk>=0.2,<1",
+]
 frameworks-llamaindex = [
   "llama-index-core>=0.14,<0.15",
 ]
