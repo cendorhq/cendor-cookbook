@@ -63,6 +63,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [squeeze](recipes/quickstarts/squeeze/) | quickstart | Compress a huge blob to a token target, restore byte-for-byte | `core` `squeeze` | ✓ |
 | [cassette](recipes/quickstarts/cassette/) | quickstart | Record an agent call once, replay it forever offline | `core` `cassette` | ✓ |
 | [acttrace](recipes/quickstarts/acttrace/) | quickstart | Signed hash-chain; one edited byte breaks `verify` | `core` `acttrace` | ✓ |
+| [guardrails](recipes/quickstarts/guardrails/) | quickstart | Block / redact a call before it's sent; every decision in the audit chain | `core` `guardrails` `acttrace` | ✓ |
 | [core](recipes/quickstarts/core/) | quickstart | One `instrument()` wrap → every call on a normalized bus | `core` | ✓ |
 | [core-js](recipes/quickstarts/core-js/) | quickstart · TS | The `core` quickstart in TypeScript — `@cendor/core` on npm, decimal-safe cost | `@cendor/core` | ✓ |
 | [openai-chat](recipes/providers/openai-chat/) | provider · RECORD | Pre-flight budget + attribution on Chat Completions | `core` `tokenguard` | ✓ |
