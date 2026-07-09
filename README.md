@@ -76,6 +76,8 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
 | [pytest-cassette](recipes/testing/pytest-cassette/) | testing | An offline agent test suite that runs on a plane | `core` `cassette` | ✓ |
 | [eu-ai-act-evidence](recipes/governance/eu-ai-act-evidence/) | governance | A tamper-evident evidence pack for a high-risk decision | `core` `acttrace` | ✓ |
+| [pii-guardrail](recipes/governance/pii-guardrail/) | governance | PII/secrets as a guardrail (`rules.custom` + acttrace) — redacted before send, in the audit chain | `core` `guardrails` `acttrace` | ✓ |
+| [llm-judge-guardrail](recipes/governance/llm-judge-guardrail/) | governance | A model-judge input screen whose own spend is budgeted + audited; cassette-replayed offline | `core` `guardrails` `tokenguard` `cassette` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
 | [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
 
