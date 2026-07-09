@@ -11,13 +11,15 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
   "cendor-libs>=1.0,<2.0",
-  "cendor-sdk>=1.0,<2.0",          # the SDK recipes (recipes/sdk/) — pulls the same six libs
+  "cendor-sdk>=1.0,<2.0",          # the SDK recipes (recipes/sdk/) — pulls the same libs
   # 1.4 makes tiktoken a hard dependency — exact token counts by default (the [tiktoken] extra is
   # gone; the floor must be >=1.4 so a resolve can't pick an older version that treats it as optional).
   "cendor-core>=1.4,<2.0",
-  # The chat-playground app uses acttrace 1.1's detection engine (Policy/scan/redact); pin the
-  # floor so a resolve can't fall back to 1.0 (which lacks that API).
-  "cendor-acttrace>=1.1,<2.0",
+  # The guardrails quickstart (recipes/quickstarts/guardrails/) needs the gate + its acttrace capture:
+  # acttrace >=1.3 chains guardrail decisions as `guardrail_decision` entries (also covers the
+  # chat-playground app's 1.1 detection engine). cendor-guardrails is the deterministic gate itself.
+  "cendor-guardrails>=1.0,<2.0",
+  "cendor-acttrace>=1.3,<2.0",
 ]
 
 [tool.uv]
