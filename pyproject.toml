@@ -15,11 +15,11 @@ dependencies = [
   # 1.4 makes tiktoken a hard dependency — exact token counts by default (the [tiktoken] extra is
   # gone; the floor must be >=1.4 so a resolve can't pick an older version that treats it as optional).
   "cendor-core>=1.4,<2.0",
-  # The guardrails quickstart (recipes/quickstarts/guardrails/) needs the gate + its acttrace capture:
-  # acttrace >=1.3 chains guardrail decisions as `guardrail_decision` entries (also covers the
-  # chat-playground app's 1.1 detection engine). cendor-guardrails is the deterministic gate itself.
-  "cendor-guardrails>=1.0,<2.0",
-  "cendor-acttrace>=1.3,<2.0",
+  # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
+  # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
+  # policy_version) into the chain. cendor-guardrails is the deterministic gate itself.
+  "cendor-guardrails>=1.2,<2.0",
+  "cendor-acttrace>=1.4,<2.0",
 ]
 
 [tool.uv]
