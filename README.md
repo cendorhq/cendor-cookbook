@@ -82,6 +82,8 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [guardrails-redteam](recipes/governance/guardrails-redteam/) | governance | Measure a guardrail's trip rate + false positives against a labeled corpus (`run_redteam`) — a number, not a claim | `guardrails` | ✓ |
 | [spotlight-untrusted-docs](recipes/governance/spotlight-untrusted-docs/) | governance | `rules.spotlight` wraps a retrieved doc in a trust-lowering delimiter (a `$0` mitigation vs indirect injection); composes with a denylist | `core` `guardrails` | ✓ |
 | [task-adherence](recipes/governance/task-adherence/) | governance | A BYO-judge `tool_call` alignment check (is the proposed call on-task?) whose own spend is budgeted + audited; cassette-replayed offline | `core` `guardrails` `tokenguard` `cassette` | ✓ |
+| [intent-gate](recipes/governance/intent-gate/) | governance | `rules.intent` — a pre-LLM intent gate (off-topic `allow` / deny) before you spend a token; offline keyword classifier, no model | `core` `guardrails` | ✓ |
+| [custom-category](recipes/governance/custom-category/) | governance | `rules.custom_category` catches a paraphrase a keyword denylist misses (semantic by-example); composes with `keyword_deny` | `core` `guardrails` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
 | [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
 | [openai-agents-guardrail](recipes/bridges/openai-agents-guardrail/) | bridges | A cendor Guardrail as an OpenAI Agents SDK `@input_guardrail` | `guardrails` + `openai-agents` | ✓ |
