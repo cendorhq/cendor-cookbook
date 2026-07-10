@@ -17,8 +17,9 @@ dependencies = [
   "cendor-core>=1.4,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
-  # policy_version) into the chain. cendor-guardrails is the deterministic gate itself.
-  "cendor-guardrails>=1.2,<2.0",
+  # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
+  # custom-category recipes). cendor-guardrails is the deterministic gate itself.
+  "cendor-guardrails>=1.4,<2.0",
   "cendor-acttrace>=1.4,<2.0",
 ]
 
