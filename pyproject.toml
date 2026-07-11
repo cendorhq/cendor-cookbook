@@ -1,5 +1,5 @@
 # Cendor Cookbook — a uv-managed project of copy-paste recipes (not a published package).
-# Recipes install the SHIPPED PyPI packages (cendor-libs 1.0.x), never local source, and every
+# Recipes install the SHIPPED PyPI packages (cendor-libs 1.x), never local source, and every
 # recipe runs offline with no API key. Framework SDKs live in per-category dependency-groups
 # with upper bounds so one framework's breaking release can't turn the whole repo's CI red.
 [project]

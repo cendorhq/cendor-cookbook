@@ -173,8 +173,9 @@ jobs:
 
   js-recipes:
     # The two TypeScript recipes (core-js, governed-agent-js). Each installs the published
-    # @cendor/* packages and runs offline against a fake client — no key, no network. This job
-    # is why a stale npm pin turns red instead of rotting silently.
+    # @cendor/* packages and runs offline against a fake client — no key, no network.
+    # NOTE: a 0.x caret (^0.3.2) resolves only within its minor, so a stale pin here rots
+    # SILENTLY GREEN — bumping these pins is on the post-release sync checklist (root CLAUDE.md).
     strategy:
       fail-fast: false
       matrix:

@@ -136,7 +136,7 @@ New recipes are welcome — the one hard rule is **it runs green offline, with n
 
 - **Library:** [github.com/cendorhq/cendor-libs](https://github.com/cendorhq/cendor-libs)
 - **Site:** [cendor.ai](https://cendor.ai) · [cendor.ai/cookbook](https://cendor.ai/cookbook)
-- **Docs:** [docs.cendor.ai](https://docs.cendor.ai)
+- **Docs:** [cendor.ai/docs](https://cendor.ai/docs)
 - **MCP server:** [cendor.ai/mcp](https://cendor.ai/mcp) — an agent-mode assistant can list these recipe
   categories with the `list_recipes` tool (remote `mcp.cendor.ai` or local `npx @cendor/mcp` / `uvx cendor-mcp`).
 - **For AI assistants:** [cendor.ai/docs/for-ai-assistants](https://cendor.ai/docs/for-ai-assistants) — the
