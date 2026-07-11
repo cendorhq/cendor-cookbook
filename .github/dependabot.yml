@@ -17,6 +17,11 @@ updates:
     groups:
       python:
         patterns: ["*"]
+    ignore:
+      # gradio 6 removed Chatbot(type=...) and breaks the chat-playground app; the gradio-6
+      # migration is deliberately deferred — unignore when it lands.
+      - dependency-name: gradio
+        versions: [">=6.0.0, <7.0.0"]
 
   # The two TypeScript recipes — each pins the published @cendor/* packages, so keep them
   # current as new 0.x minors ship (this is the drift class that previously rotted silently).
