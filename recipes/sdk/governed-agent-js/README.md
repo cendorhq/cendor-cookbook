@@ -24,9 +24,10 @@ trace  : <hex>
 audit  : true — ok: 6 entries, head <hex>… (signatures verified; metadata signature verified)
 ```
 
-Swap the stub for a real provider by passing `client: new OpenAI()` (or an Anthropic client) — the
-SDK instruments it the same way, and the budget/audit/verify guarantees are unchanged. The audit
-chain it writes verifies in **Python** too (`cendor.acttrace.verify`), byte-for-byte.
+Drop the `client:` argument and set `OPENAI_API_KEY` (Anthropic: `ANTHROPIC_API_KEY`) to run it
+live — the SDK builds the provider client from your env; or pass `client: new OpenAI()` yourself. The
+budget/audit/verify guarantees are unchanged, and the audit chain it writes verifies in **Python**
+too (`cendor.acttrace.verify`), byte-for-byte.
 
 Libraries: `@cendor/sdk` (+ `@cendor/tokenguard`, `@cendor/acttrace`) · Offline ✓ · TypeScript ·
 [← all recipes](../../../README.md)
