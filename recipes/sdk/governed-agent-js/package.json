@@ -5,7 +5,7 @@
   "description": "Cendor cookbook — @cendor/sdk governed agent (JS, offline).",
   "scripts": { "start": "node index.mjs" },
   "dependencies": {
-    "@cendor/sdk": "^0.9.1",
+    "@cendor/sdk": "^0.10.0",
     "zod": "^3.24.1"
   }
 }
