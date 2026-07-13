@@ -20,6 +20,11 @@ provider-shaped client, exactly the way Cendor's own test suite does — so ther
 up for and nothing to spend. Two recipes are the TypeScript twins (`core-js`, `governed-agent-js`);
 they install the published `@cendor/*` npm packages and run the same way with `node`.
 
+**Running a recipe live?** Swap the fake client for a real one — or, in the SDK recipes, drop the
+explicit `client` and set your provider's standard env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
+Where the key goes is documented once at
+[Keys & providers](https://cendor.ai/docs/sdk/providers#api-keys--credentials).
+
 ## Start here: the Chat Playground
 
 New to Cendor? The [**Chat Playground**](recipes/apps/chat-playground/) is a chat app that makes
