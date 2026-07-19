@@ -97,6 +97,31 @@ jobs:
             echo "::endgroup::"
           done
 
+  observability:
+    # Observability recipes export Cendor's governance to an OTel backend. Each installs only its own
+    # group; in-memory OTel readers keep them offline (no collector, no account).
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+        recipe:
+          - { name: otel-export, group: observability-otel }
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: run ${{ matrix.recipe.name }} recipe offline
+        run: |
+          dir="recipes/observability/${{ matrix.recipe.name }}"
+          for f in "$dir"/*.py; do
+            echo "::group::$f"
+            uv run --python ${{ matrix.python }} --group ${{ matrix.recipe.group }} python "$f"
+            echo "::endgroup::"
+          done
+
   testing:
     strategy:
       fail-fast: false

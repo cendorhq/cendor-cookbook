@@ -79,6 +79,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [openai-agents-sdk](recipes/frameworks/openai-agents-sdk/) | framework · RECORD | Budget + audit a loop the Agents SDK fully owns | `core` `tokenguard` `acttrace` | ✓ |
 | [llamaindex](recipes/frameworks/llamaindex/) | framework | Pack RAG retrieval to a token budget, reversibly | `core` `contextkit` `squeeze` | ✓ |
 | [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
+| [otel-export](recipes/observability/otel-export/) | observability | Stream spend + the audit trail + a budget block to any OTel backend (Azure Monitor / CloudWatch / Datadog); the file stays the evidence | `core` `tokenguard` `acttrace` | ✓ |
 | [pytest-cassette](recipes/testing/pytest-cassette/) | testing | An offline agent test suite that runs on a plane | `core` `cassette` | ✓ |
 | [eu-ai-act-evidence](recipes/governance/eu-ai-act-evidence/) | governance | A tamper-evident evidence pack for a high-risk decision | `core` `acttrace` | ✓ |
 | [pii-guardrail](recipes/governance/pii-guardrail/) | governance | PII/secrets as a guardrail (`rules.custom` + acttrace) — redacted before send, in the audit chain | `core` `guardrails` `acttrace` | ✓ |
@@ -119,6 +120,7 @@ own dependency group so a breaking release in one can't turn the others red:
 | frameworks · openai-agents-sdk | `uv run --group frameworks-agents python recipes/frameworks/openai-agents-sdk/main.py` |
 | frameworks · llamaindex | `uv run --group frameworks-llamaindex python recipes/frameworks/llamaindex/main.py` |
 | frameworks · azure-foundry-otel | `uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel/main.py` |
+| observability · otel-export | `uv run --group observability-otel python recipes/observability/otel-export/main.py` |
 | apps · chat-playground | `uv run --group apps python recipes/apps/chat-playground/app.py` |
 
 Any recipe that ships a test file is also runnable via `uv run pytest recipes/<category>/<name>`.

@@ -61,6 +61,11 @@ frameworks-llamaindex = [
 frameworks-otel = [
   "opentelemetry-sdk>=1.43,<2",
 ]
+# Observability recipes (recipes/observability/): export Cendor's governance to an OTel backend.
+# Offline — in-memory OTel readers stand in for a real collector/vendor distro.
+observability-otel = [
+  "opentelemetry-sdk>=1.43,<2",
+]
 # The chat-playground app (recipes/apps/chat-playground). Gradio is pinned with an upper bound
 # so a Gradio breaking release turns only this group's CI cell red — never the recipes' jobs.
 # Held at <6: gradio 6 moved theme/css to launch() and dropped Chatbot(type=), which app.py uses —
