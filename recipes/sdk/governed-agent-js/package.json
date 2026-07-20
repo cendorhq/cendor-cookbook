@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "description": "Cendor cookbook — @cendor/sdk governed agent (JS, offline).",
-  "scripts": { "start": "node index.mjs" },
+  "scripts": {
+    "start": "node index.mjs"
+  },
   "dependencies": {
-    "@cendor/sdk": "^0.14.0",
+    "@cendor/sdk": "^0.15.0",
     "zod": "^4.0.0"
   }
 }
