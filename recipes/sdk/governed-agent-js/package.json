@@ -7,7 +7,7 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "@cendor/sdk": "^0.17.0",
+    "@cendor/sdk": "^0.18.0",
     "zod": "^4.0.0"
   }
 }

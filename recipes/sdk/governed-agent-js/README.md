@@ -21,7 +21,7 @@ cost   : 0.000... USD
 tokens : 182
 tools  : [ 'refund' ]
 trace  : <hex>
-audit  : true — ok: 6 entries, head <hex>… (signatures verified; metadata signature verified)
+audit  : true — ok: 7 entries, head <hex>… (signatures verified)
 ```
 
 Drop the `client:` argument and set `OPENAI_API_KEY` (Anthropic: `ANTHROPIC_API_KEY`) to run it
