@@ -106,6 +106,7 @@ jobs:
         python: ["3.11", "3.13"]
         recipe:
           - { name: otel-export, group: observability-otel }
+          - { name: batch-ingest, group: observability-otel }
     runs-on: ubuntu-latest
     defaults:
       run:
