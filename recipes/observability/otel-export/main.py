@@ -59,9 +59,7 @@ def fake_client() -> object:
 
     class Completions:
         def create(self, **kwargs: object) -> object:
-            return SimpleNamespace(
-                usage=SimpleNamespace(prompt_tokens=1000, completion_tokens=500)
-            )
+            return SimpleNamespace(usage=SimpleNamespace(prompt_tokens=1000, completion_tokens=500))
 
     return instrument(SimpleNamespace(chat=SimpleNamespace(completions=Completions())))
 
@@ -112,8 +110,10 @@ def main() -> None:
     r = report(group_by=["feature"])
 
     print(f"budget breaker fired (call blocked pre-flight): {blocked}")
-    print(f"spend -> OTel metrics : {tokens_exported} tokens on gen_ai.client.token.usage "
-          f"(local report: ${r.total().amount})")
+    print(
+        f"spend -> OTel metrics : {tokens_exported} tokens on gen_ai.client.token.usage "
+        f"(local report: ${r.total().amount})"
+    )
     print(f"audit -> OTel spans   : {len(spans)} mirrored ({', '.join(span_names)})")
     assert "audit.budget_event" in span_names, "the budget block should mirror as a span"
 
