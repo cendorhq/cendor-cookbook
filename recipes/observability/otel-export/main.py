@@ -5,8 +5,10 @@ configures — so spend metrics and the audit trail flow to Azure Monitor / Clou
 OTLP backend with **no Cendor-specific exporter**. This recipe proves it with IN-MEMORY OTel readers
 (no account, no collector, no network):
 
-  1. `use_sink(OTelSink())`         — spend rows become metric counters, dimensioned by track() tags.
-  2. `AuditLog(mirror=OTelMirror())` — every chained audit entry also becomes an `audit.<type>` span.
+  1. `use_sink(OTelSink())`         — spend rows become metric counters, dimensioned by
+     track() tags.
+  2. `AuditLog(mirror=OTelMirror())` — every chained audit entry also becomes an
+     `audit.<type>` span.
   3. A pre-flight `budget(..., on_exceed="block")` trips a `BudgetEvent`, which acttrace chains as a
      `budget_event` and the mirror exports as an `audit.budget_event` span — the one signal a
      *refused* call ever leaves.
