@@ -7,6 +7,6 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "@cendor/core": "^0.16.0"
+    "@cendor/core": "^1.0.0"
   }
 }
