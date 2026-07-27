@@ -55,6 +55,7 @@ per-category group, e.g.:
 
 ```bash
 uv run --group frameworks-langchain python recipes/frameworks/langchain/main.py
+uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/main.py
 uv run pytest recipes/testing recipes/governance          # the test-style recipes
 ```
 
@@ -63,6 +64,8 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | Recipe | Category | What it proves | Libraries | Offline |
 |---|---|---|---|---|
 | [**chat-playground**](recipes/apps/chat-playground/) | **app** | Every library live in one chat UI — the plumbing made visible per turn | `core` `tokenguard` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
+| [**m365-custom-engine-py**](recipes/agents/m365-custom-engine-py/) | **agent** | Govern a Microsoft 365 Agents SDK **custom engine agent**: session cap in `TurnState`, gates on the Activity, evidence per turn, and the whole agent replayed offline for `$0` CI | `core` `tokenguard` `guardrails` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
+| [**m365-custom-engine-js**](recipes/agents/m365-custom-engine-js/) | **agent** · TS | The same agent on `@microsoft/agents-hosting` — plus a negative control for the `afterTurn` trap that silently stops the cap from ever binding | `@cendor/core` + the six libraries | ✓ |
 | [tokenguard](recipes/quickstarts/tokenguard/) | quickstart | Block a runaway loop *before* it overspends (pre-flight cap) | `core` `tokenguard` | ✓ |
 | [contextkit](recipes/quickstarts/contextkit/) | quickstart | Fit a prompt to budget with a kept/shrunk/dropped receipt | `core` `contextkit` | ✓ |
 | [squeeze](recipes/quickstarts/squeeze/) | quickstart | Compress a huge blob to a token target, restore byte-for-byte | `core` `squeeze` | ✓ |
@@ -104,10 +107,11 @@ maintainer runs once with a real key to capture a replayable cassette (secrets r
 
 ## Run any recipe
 
-Most recipes are a folder with a `main.py` you can run directly; the two TypeScript twins
-(`core-js`, `governed-agent-js`) are a folder with an `index.mjs` run with `node`. Quickstart,
-provider, SDK, and governance recipes run on the base install; framework recipes each need their
-own dependency group so a breaking release in one can't turn the others red:
+Most recipes are a folder with a `main.py` you can run directly; the TypeScript twins
+(`core-js`, `governed-agent-js`, `m365-custom-engine-js`) are a folder with an `index.mjs` run with
+`node`. Quickstart, provider, SDK, and governance recipes run on the base install; framework and
+agent-host recipes each need their own dependency group so a breaking release in one can't turn the
+others red:
 
 | Category | Command |
 |---|---|

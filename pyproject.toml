@@ -12,9 +12,12 @@ license = "Apache-2.0"
 dependencies = [
   "cendor-libs>=1.0,<2.0",
   "cendor-sdk>=1.0,<2.0",          # the SDK recipes (recipes/sdk/) — pulls the same libs
-  # 1.4 makes tiktoken a hard dependency — exact token counts by default (the [tiktoken] extra is
+  # 1.4 made tiktoken a hard dependency — exact token counts by default (the [tiktoken] extra is
   # gone; the floor must be >=1.4 so a resolve can't pick an older version that treats it as optional).
-  "cendor-core>=1.4,<2.0",
+  # >=1.14.1 for the agents/ recipes: a replayed call on an **async** client is awaitable again, which
+  # is what lets a whole aiohttp/express agent replay from a cassette with no app-side shim. Below
+  # that floor `await client.chat.completions.create(...)` raises TypeError under a replay scope.
+  "cendor-core>=1.14.1,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
@@ -57,6 +60,12 @@ frameworks-claude-agent = [
 ]
 frameworks-llamaindex = [
   "llama-index-core>=0.14,<0.15",
+]
+# Agent-host recipes (recipes/agents/): the agent runs inside somebody else's HOST process, so the
+# host SDK itself is the dependency. Own group, own upper bound — the Microsoft 365 Agents SDK moves
+# fast and a breaking release must turn only this cell red.
+agents-m365 = [
+  "microsoft-agents-hosting-aiohttp>=1.2,<2",
 ]
 frameworks-otel = [
   "opentelemetry-sdk>=1.43,<2",

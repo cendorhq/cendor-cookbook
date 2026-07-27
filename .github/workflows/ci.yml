@@ -123,6 +123,31 @@ jobs:
             echo "::endgroup::"
           done
 
+  agents:
+    # Agent-host recipes (recipes/agents/): the agent runs inside somebody else's HOST process, so the
+    # host SDK is the dependency and gets its own group — a breaking Microsoft 365 Agents SDK release
+    # turns only this cell red. Still fully offline: a real AgentApplication on a real localhost socket,
+    # driven by a local channel stub, with a fake provider client. No key, no network.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: run the M365 custom engine agent recipe offline
+        run: |
+          uv run --python ${{ matrix.python }} --group agents-m365 \
+            python recipes/agents/m365-custom-engine-py/main.py
+      - name: pytest the agents recipes
+        run: |
+          uv run --python ${{ matrix.python }} --group agents-m365 \
+            pytest recipes/agents
+
   testing:
     strategy:
       fail-fast: false
@@ -198,10 +223,13 @@ jobs:
         run: uv run --python ${{ matrix.python }} --group apps pytest recipes/apps/chat-playground
 
   js-recipes:
-    # The two TypeScript recipes (core-js, governed-agent-js). Each installs the published
-    # @cendor/* packages and runs offline against a fake client — no key, no network.
-    # NOTE: a 0.x caret (^0.3.2) resolves only within its minor, so a stale pin here rots
-    # SILENTLY GREEN — bumping these pins is on the post-release sync checklist (root CLAUDE.md).
+    # The TypeScript recipes (core-js, governed-agent-js, m365-custom-engine-js). Each installs the
+    # published @cendor/* packages and runs offline against a fake client — no key, no network.
+    # NOTE: a caret pin resolves only within its major, so a stale pin here rots SILENTLY GREEN —
+    # bumping these pins is on the post-release sync checklist (root CLAUDE.md).
+    # Node 20 and 22 are in the matrix on purpose: the M365 recipe's turn scope uses
+    # AsyncLocalStorage, and `run()` vs `enterWith` behaves differently on legacy-ALS Node — a test
+    # green only on Node 24 proves nothing about the LTS.
     strategy:
       fail-fast: false
       matrix:
@@ -217,7 +245,8 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: run every TypeScript recipe offline
         run: |
-          for dir in recipes/quickstarts/core-js recipes/sdk/governed-agent-js; do
+          for dir in recipes/quickstarts/core-js recipes/sdk/governed-agent-js \
+                     recipes/agents/m365-custom-engine-js; do
             echo "::group::$dir"
             (cd "$dir" && npm install && node index.mjs)
             echo "::endgroup::"
@@ -226,4 +255,6 @@ jobs:
       # (the recipe still runs; it just runs on an old shelf). Two cores = two event buses = a
       # guardrail decision that never reaches the SDK, with nothing failing to say so.
       - name: G1 — one @cendor/core per recipe
-        run: node scripts/check-one-core.mjs recipes/quickstarts/core-js recipes/sdk/governed-agent-js
+        run: |
+          node scripts/check-one-core.mjs recipes/quickstarts/core-js \
+            recipes/sdk/governed-agent-js recipes/agents/m365-custom-engine-js
