@@ -222,3 +222,8 @@ jobs:
             (cd "$dir" && npm install && node index.mjs)
             echo "::endgroup::"
           done
+      # GATE G1 — exactly one @cendor/core per recipe. A stale pin here used to rot silently green
+      # (the recipe still runs; it just runs on an old shelf). Two cores = two event buses = a
+      # guardrail decision that never reaches the SDK, with nothing failing to say so.
+      - name: G1 — one @cendor/core per recipe
+        run: node scripts/check-one-core.mjs recipes/quickstarts/core-js recipes/sdk/governed-agent-js
