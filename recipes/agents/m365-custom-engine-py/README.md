@@ -24,8 +24,8 @@ recipes/agents/m365-custom-engine-py/
 No key. No network. No tenant, no tunnel, no bot registration.
 
 ```bash
-uv run --group agents-m365 python  recipes/agents/m365-custom-engine-py/main.py
-uv run --group agents-m365 pytest  recipes/agents/m365-custom-engine-py
+uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/main.py
+uv run --group agents-m365 pytest recipes/agents/m365-custom-engine-py
 ```
 
 ## Expected output

@@ -206,9 +206,11 @@ Expect **two OpenTelemetry span families** from a governed agent — the hosting
 
 ## Pins
 
-The 2026-07-27 npm shelf. All `@cendor/*` libraries share **major 3**; minors and patches are
-independent per package, which is why `@cendor/contextkit` is `3.0.1` and `@cendor/acttrace` is
-`3.1.0`.
+The npm shelf this recipe was **validated against, on 2026-07-27** — a record of what was run, not a
+lockfile. `package.json` declares these as carets, and at `3.x` a caret spans the whole major, so a
+fresh install resolves forward within major 3: a newer patch than the numbers below is expected, not
+drift. All `@cendor/*` libraries share **major 3**; minors and patches are independent per package,
+which is why `@cendor/contextkit` is `3.0.1` and `@cendor/acttrace` is `3.1.0`.
 
 ```
 @cendor/{core,tokenguard,guardrails,squeeze,cassette} 3.0.0
