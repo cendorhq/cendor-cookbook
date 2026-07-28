@@ -97,6 +97,15 @@ if __name__ == "__main__":
       upper bound at the next breaking release.
 - [ ] No invented metrics; every cost traces to `prices.estimate(...)`.
 
+## Conduct and security
+
+Be respectful and constructive — see the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Found a security problem in a recipe — an unsafe pattern people would copy, a credential that leaked
+into a fixture, a cassette that isn't safe to load? **Don't open a public issue.** See
+[SECURITY.md](SECURITY.md) for the private reporting channel and what belongs here versus in
+[`cendor-libs`](https://github.com/cendorhq/cendor-libs).
+
 ## Site contract
 
 Folder names under `recipes/` are an API — the cendor.ai `/cookbook` page deep-links to them.

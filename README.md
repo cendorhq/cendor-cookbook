@@ -178,6 +178,9 @@ Costs shown anywhere come from `prices.estimate` on the stated token counts — 
 New recipes are welcome — the one hard rule is **it runs green offline, with no key**. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the recipe template and the offline bar.
 
+Also: [Code of Conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md) — **never** open a public
+issue for a security problem; report it privately through the Security tab.
+
 ## Links
 
 - **Library:** [github.com/cendorhq/cendor-libs](https://github.com/cendorhq/cendor-libs)
