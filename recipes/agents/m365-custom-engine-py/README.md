@@ -28,7 +28,9 @@ uv run --group agents-m365 python  recipes/agents/m365-custom-engine-py/main.py
 uv run --group agents-m365 pytest  recipes/agents/m365-custom-engine-py
 ```
 
-```
+## Expected output
+
+```text
 --- one governed turn ------------------------------------------
   reply       : Your refund is on its way.
   tokens      : 41 in / 8 out   (gpt-4o-mini)
@@ -222,3 +224,5 @@ awaitable again, which is what makes the offline replay above work with no app-s
 The TypeScript twin is [`../m365-custom-engine-js`](../m365-custom-engine-js/). Full docs: [cendor.ai/docs/providers → Microsoft 365 Agents
 SDK](https://cendor.ai/docs/providers#microsoft-365-agents-sdk-custom-engine-agent) — this is a **libraries**
 integration, not a `cendor-sdk` one.
+
+Libraries: `core`, `tokenguard`, `guardrails`, `contextkit`, `squeeze`, `cassette`, `acttrace` · Host: `microsoft-agents-hosting-aiohttp` · Offline ✓ · [← all recipes](../../../README.md)

@@ -8,9 +8,22 @@ guardrail — is **structurally impossible**: there is no call to intercept at r
 event bus a live call rides — so `tokenguard` prices and reports it, and an `OTelSink` / `acttrace`
 mirror see it too, exactly as if it had been instrumented locally.
 
+## Run it
+
 ```bash
 uv run --group observability-otel python recipes/observability/batch-ingest/main.py
 ```
+
+## Expected output
+
+```text
+ingested batch lines : 3
+batch spend attributed: $0.020900000 across feature=nightly-summaries
+tokens                : 4000 in / 1090 out
+OK — server-side batch spend is governed after the fact (no pre-flight possible).
+```
+
+## How it works
 
 The recipe reads a canned batch `output.jsonl` payload (offline — no key, no network). In production
 you'd stream the lines of the file the finished job hands back:
@@ -31,9 +44,6 @@ with track(feature="nightly-summaries", batch_id=job.id), trace(job.id):
 run (`ingest` stamps the ambient trace id onto each call). Then `report()` shows the batch alongside
 your live runs, and any attached `OTelSink` exports it — **zero library change**.
 
-Expected output: 3 lines ingested, ~$0.02 attributed to `feature=nightly-summaries`, 4,000 in /
-1,090 out tokens.
-
 ## Honest limits
 
 - **Post-hoc only — no pre-flight for batches.** A batch is decided and billed on the provider's
@@ -46,3 +56,5 @@ Expected output: 3 lines ingested, ~$0.02 attributed to `feature=nightly-summari
   OpenAI Assistants (see the [Observability guide](https://cendor.ai/docs/observability)). It needs no
   OpenTelemetry dependency; the `observability-otel` group here is only for parity with the sibling
   recipe.
+
+Libraries: `core`, `tokenguard` · Offline ✓ · [← all recipes](../../../README.md)

@@ -27,7 +27,9 @@ broken governance path exits non-zero.
 cd recipes/agents/m365-custom-engine-js && npm install && node index.mjs
 ```
 
-```
+## Expected output
+
+```text
 --- one governed turn ------------------------------------------
   tokens      : 41 in / 8 out   (gpt-4o-mini)
   cost        : $0.00001095   Decimal, priced from the snapshot
@@ -222,3 +224,5 @@ asserts there is exactly one, and cookbook CI runs it.
 The Python twin is [`../m365-custom-engine-py`](../m365-custom-engine-py/). Full docs: [cendor.ai/docs/providers → Microsoft 365 Agents
 SDK](https://cendor.ai/docs/providers#microsoft-365-agents-sdk-custom-engine-agent) — this is a **libraries**
 integration, not a `cendor-sdk` one.
+
+Libraries: `@cendor/core`, `tokenguard`, `guardrails`, `contextkit`, `squeeze`, `cassette`, `acttrace` · Host: `@microsoft/agents-hosting` · Offline ✓ · TypeScript · [← all recipes](../../../README.md)

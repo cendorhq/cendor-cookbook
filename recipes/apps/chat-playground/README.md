@@ -76,3 +76,5 @@ uv run --group apps pytest recipes/apps/chat-playground/test_app.py
 ```
 
 > `acttrace` produces **evidence to support** compliance — not a guarantee, and not legal advice.
+
+Libraries: `core`, `tokenguard`, `contextkit`, `squeeze`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

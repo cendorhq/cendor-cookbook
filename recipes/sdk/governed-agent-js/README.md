@@ -29,5 +29,4 @@ live — the SDK builds the provider client from your env; or pass `client: new 
 budget/audit/verify guarantees are unchanged, and the audit chain it writes verifies in **Python**
 too (`cendor.acttrace.verify`), byte-for-byte.
 
-Libraries: `@cendor/sdk` (+ `@cendor/tokenguard`, `@cendor/acttrace`) · Offline ✓ · TypeScript ·
-[← all recipes](../../../README.md)
+Libraries: `@cendor/sdk` (+ `@cendor/tokenguard`, `@cendor/acttrace`) · Offline ✓ · TypeScript · [← all recipes](../../../README.md)

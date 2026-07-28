@@ -17,12 +17,25 @@ Three attachments do the work:
    call ever leaves — which acttrace chains as a `budget_event` and the mirror exports as an
    `audit.budget_event` span.
 
+## Run it
+
 ```bash
 uv run --group observability-otel python recipes/observability/otel-export/main.py
 ```
 
-Expected output: the budget breaker fires, 1,500 tokens land on the spend counter, five `audit.*`
-spans are mirrored (including `audit.budget_event`), and the evidence file verifies.
+## Expected output
+
+```text
+budget breaker fired (call blocked pre-flight): True
+spend -> OTel metrics : 1500 tokens on gen_ai.client.token.usage (local report: $0.007500000)
+audit -> OTel spans   : 6 mirrored (audit.audit_open, audit.budget_event, audit.decision, audit.decision_end, audit.llm_call, chat gpt-4o)
+audit file (evidence) : verify -> True (ok: 5 entries, head <hex>… (signatures verified; metadata signature verified))
+```
+
+The breaker fires, 1,500 tokens land on the spend counter, and **five `audit.*` spans** are mirrored
+— including `audit.budget_event`, the only signal a *refused* call ever leaves — alongside the
+instrumented call's own `chat gpt-4o` span (6 spans on the exporter in total). Then the evidence file
+verifies. Only the chain head varies between runs.
 
 ## The one-line change for production
 
@@ -47,3 +60,5 @@ Any OTLP backend works the same way — set `OTEL_EXPORTER_OTLP_ENDPOINT` and st
   never on the mirror. Keep the file (or a signed `export()` pack) as the compliance record.
 - **Metric cardinality.** `OTelSink` dimensions spend by your `track(...)` tags — keep tag *values*
   low-cardinality (`feature`, `tenant`) or pass `OTelSink(tags=False)` for model-only counters.
+
+Libraries: `core`, `tokenguard`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)
