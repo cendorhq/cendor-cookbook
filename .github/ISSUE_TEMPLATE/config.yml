@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability (private report)
+    url: https://github.com/cendorhq/cendor-cookbook/security/advisories/new
+    about: Never a public issue — report privately via GitHub Private Vulnerability Reporting. An unsafe pattern people would copy, or a credential in a fixture, counts. See SECURITY.md.
+  - name: Browse the recipes
+    url: https://cendor.ai/cookbook
+    about: The rendered index, by category. Every recipe runs offline with no API key.
+  - name: Documentation
+    url: https://cendor.ai/docs
+    about: A question, a "how do I …", or an unclear page — the docs are the reference these recipes exercise.
+  - name: A bug in a Cendor library (not in a recipe)
+    url: https://github.com/cendorhq/cendor-libs/issues
+    about: "cendor-core, tokenguard, guardrails, acttrace, contextkit, squeeze, cassette — the recipes install the released packages, so a library flaw lives upstream."
+  - name: A bug in the agent SDK
+    url: https://github.com/cendorhq/cendor-sdk/issues
+    about: cendor-sdk / @cendor/sdk — the governed agent loop the recipes/sdk recipes drive.
