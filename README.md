@@ -5,11 +5,18 @@
   </picture>
 </p>
 
-# Cendor Cookbook
+<!-- The header block is centred as one unit, to line up with the banner above. That means HTML, not
+     markdown: GitHub does not process markdown inside an HTML block, so `**bold**` and `[a](b)` would
+     render literally inside a <p align="center">. Verified against the GitHub markdown API.
+     The three badges were also one-per-source-line here, which is a second reason they stacked. -->
 
-[![CI](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
+<h1 align="center">Cendor Cookbook</h1>
+
+<p align="center">
+  <a href="https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cendorhq/cendor-cookbook/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg"></a>
+  <a href="https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1"><img alt="Open in GitHub Codespaces" src="https://github.com/codespaces/badge.svg"></a>
+</p>
 
 Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/cendor-libs) — production plumbing
 for LLM apps (cost, context, testing, governance) — works with the frameworks and providers you
