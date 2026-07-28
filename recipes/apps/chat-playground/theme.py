@@ -13,7 +13,7 @@ from pathlib import Path
 
 import gradio as gr
 
-# ── brand tokens (from cendor-site/src/styles/global.css) ───────────────────────────────────
+# ── brand tokens (the cendor.ai design tokens, kept in sync by hand) ────────────────────────
 NAVY = "#0F172A"
 NAVY_2 = "#111C33"  # panels / cards
 NAVY_3 = "#0B1220"  # body ground (darkest)

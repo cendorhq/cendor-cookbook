@@ -271,7 +271,8 @@ jobs:
     # The TypeScript recipes (core-js, governed-agent-js, m365-custom-engine-js). Each installs the
     # published @cendor/* packages and runs offline against a fake client — no key, no network.
     # NOTE: a caret pin resolves only within its major, so a stale pin here rots SILENTLY GREEN —
-    # bumping these pins is on the post-release sync checklist (root CLAUDE.md).
+    # after any @cendor/core or @cendor/sdk minor, bump the pins in all three recipes' package.json
+    # (the whole @cendor/* set together, never core alone — see GATE G1 at the end of this job).
     # Node 20 and 22 are in the matrix on purpose: the M365 recipe's turn scope uses
     # AsyncLocalStorage, and `run()` vs `enterWith` behaves differently on legacy-ALS Node — a test
     # green only on Node 24 proves nothing about the LTS.

@@ -1006,7 +1006,7 @@ _HONEST_LABEL = (
     "Connect a key for a live one.</div>"
 )
 
-# Ported from cendor-site/src/styles/global.css + the library-demo components, scoped to this app.
+# Ported from the cendor.ai stylesheet + its library-demo components, scoped to this app.
 _CSS = (
     font_face_css()
     + """
