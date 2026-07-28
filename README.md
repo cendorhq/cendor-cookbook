@@ -17,8 +17,9 @@ already use. **Every recipe runs offline, with no API key.**
 
 Most recipes install the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drive it against a fake
 provider-shaped client, exactly the way Cendor's own test suite does — so there's nothing to sign
-up for and nothing to spend. Two recipes are the TypeScript twins (`core-js`, `governed-agent-js`);
-they install the published `@cendor/*` npm packages and run the same way with `node`.
+up for and nothing to spend. Three recipes are the TypeScript twins (`core-js`, `governed-agent-js`,
+`m365-custom-engine-js`); they install the published `@cendor/*` npm packages and run the same way
+with `node`.
 
 **Running a recipe live?** Swap the fake client for a real one — or, in the SDK recipes, drop the
 explicit `client` and set your provider's standard env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
@@ -109,9 +110,9 @@ maintainer runs once with a real key to capture a replayable cassette (secrets r
 
 Most recipes are a folder with a `main.py` you can run directly; the TypeScript twins
 (`core-js`, `governed-agent-js`, `m365-custom-engine-js`) are a folder with an `index.mjs` run with
-`node`. Quickstart, provider, SDK, and governance recipes run on the base install; framework and
-agent-host recipes each need their own dependency group so a breaking release in one can't turn the
-others red:
+`node`. Quickstart, provider, SDK, and governance recipes run on the base install; framework,
+bridge, and agent-host recipes each need their own dependency group so a breaking release in one
+can't turn the others red:
 
 | Category | Command |
 |---|---|
@@ -125,20 +126,52 @@ others red:
 | frameworks · openai-agents-sdk | `uv run --group frameworks-agents python recipes/frameworks/openai-agents-sdk/main.py` |
 | frameworks · llamaindex | `uv run --group frameworks-llamaindex python recipes/frameworks/llamaindex/main.py` |
 | frameworks · azure-foundry-otel | `uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel/main.py` |
+| bridges · openai-agents-guardrail | `uv run --group frameworks-agents python recipes/bridges/openai-agents-guardrail/main.py` |
+| bridges · claude-agent-pretooluse | `uv run --group frameworks-claude-agent python recipes/bridges/claude-agent-pretooluse/main.py` |
+| bridges · mcp-tool-gating | `uv run --group frameworks-mcp python recipes/bridges/mcp-tool-gating/main.py` |
+| bridges · langchain-middleware | `uv run --group frameworks-langchain python recipes/bridges/langchain-middleware/main.py` |
 | observability · otel-export | `uv run --group observability-otel python recipes/observability/otel-export/main.py` |
 | observability · batch-ingest | `uv run --group observability-otel python recipes/observability/batch-ingest/main.py` |
+| **agents** · m365-custom-engine-py | `uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/main.py` |
+| **agents** · m365-custom-engine-js | `cd recipes/agents/m365-custom-engine-js && npm install && node index.mjs` |
 | apps · chat-playground | `uv run --group apps python recipes/apps/chat-playground/app.py` |
 
 Any recipe that ships a test file is also runnable via `uv run pytest recipes/<category>/<name>`.
+Every category above has a matching job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) —
+that is what backs the "every recipe runs offline" claim, so a new category needs a new job.
 
 ## How offline works
 
-`instrument()` identifies an LLM client by its **shape**, not by network access — so a plain
-`types.SimpleNamespace` with the same `chat.completions.create` / `responses.create` /
-`messages.create` / `chat(...)` surface is all it needs. The fake returns a canned `usage`, and
-Cendor normalizes and prices it from a bundled offline snapshot exactly as it would a real call.
-No key, no network, forever. Costs shown come from `prices.estimate` on the stated token counts —
-no invented numbers.
+Three mechanisms, and every recipe uses one of them. None needs a key, a network, or a daemon.
+
+**1. A fake provider-shaped client** (most recipes). `instrument()` identifies an LLM client by its
+**shape**, not by network access — so a plain `types.SimpleNamespace` with the same
+`chat.completions.create` / `responses.create` / `messages.create` / `chat(...)` surface is all it
+needs. The fake returns a canned `usage`, and Cendor normalizes and prices it from a bundled offline
+snapshot exactly as it would a real call.
+
+**2. A committed cassette fixture, replayed** (3 recipes, 4 fixture files). Where the recipe's *point* is a real
+model call — a judge screening a prompt — the exchange is recorded once into a small JSON file that
+is committed, and every run after that replays it:
+
+| Recipe | Fixture | Mode |
+|---|---|---|
+| [llm-judge-guardrail](recipes/governance/llm-judge-guardrail/) | `fixtures/judge.json` | `cassette.use(…, mode="auto")` — replays when the file exists |
+| [task-adherence](recipes/governance/task-adherence/) | `fixtures/adherence.json` | `cassette.use(…, mode="auto")` |
+| [pytest-cassette](recipes/testing/pytest-cassette/) | `fixtures/triage.json`, `fixtures/tool.json` | `mode="replay"` — **strict**: an unrecorded call raises, so drift can't pass silently. One file per test, so `pytest -n auto` stays safe. Re-record deliberately with `RERECORD=1 uv run pytest …` |
+
+**3. Record-then-replay in one run** (1 recipe). The [cassette quickstart](recipes/quickstarts/cassette/)
+proves the round-trip rather than shipping a fixture: it records into a `tempfile.TemporaryDirectory()`
+and immediately replays from it, asserting the second pass made **zero** calls. Nothing is committed,
+because the artifact is the demonstration.
+
+**Committed fixture vs. generated recording.** `.gitignore` draws the line deliberately: a recipe's
+own `fixtures/` directory is a reviewed input, added explicitly and read by CI; anything a `RECORD=1`
+maintainer path writes lands in `**/_recordings/`, which is **ignored** — those are generated
+artifacts, never fixtures. So a maintainer recording against a real key cannot accidentally commit
+one (secrets are redacted on write regardless).
+
+Costs shown anywhere come from `prices.estimate` on the stated token counts — no invented numbers.
 
 ## Contributing
 
