@@ -97,6 +97,41 @@ jobs:
             echo "::endgroup::"
           done
 
+  bridges:
+    # Framework-BRIDGE recipes (recipes/bridges/): a cendor Guardrail exposed inside another
+    # framework's own guardrail/hook seam. Same isolation rule as `frameworks` above — one matrix
+    # entry per bridge installing ONLY that bridge's dependency-group, so a breaking release in one
+    # framework turns just its cell red. Fully offline: each recipe exercises the bridge seam
+    # directly (no agent run, no model, no key, no network).
+    #
+    # This job was MISSING until 2026-07-28: four recipes shipped with a README promising "runs
+    # green offline" that CI had never once executed. Every recipe directory under recipes/ must be
+    # reachable from some job here — that is what the README's headline claim rests on.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+        bridge:
+          - { name: openai-agents-guardrail, group: frameworks-agents }
+          - { name: claude-agent-pretooluse, group: frameworks-claude-agent }
+          - { name: mcp-tool-gating, group: frameworks-mcp }
+          - { name: langchain-middleware, group: frameworks-langchain }
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: run the ${{ matrix.bridge.name }} bridge offline
+        run: |
+          dir="recipes/bridges/${{ matrix.bridge.name }}"
+          for f in "$dir"/*.py; do
+            echo "::group::$f"
+            uv run --python ${{ matrix.python }} --group ${{ matrix.bridge.group }} python "$f"
+            echo "::endgroup::"
+          done
+
   observability:
     # Observability recipes export Cendor's governance to an OTel backend. Each installs only its own
     # group; in-memory OTel readers keep them offline (no collector, no account).
@@ -167,13 +202,23 @@ jobs:
       matrix:
         python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
       - run: uv sync --python ${{ matrix.python }}
-      - name: run the EU AI Act evidence walkthrough offline
-        run: uv run --python ${{ matrix.python }} python recipes/governance/eu-ai-act-evidence/main.py
-      - name: pytest the governance recipe
+      # A LOOP, not a list of names. This step used to run eu-ai-act-evidence/main.py alone and lean
+      # on `pytest recipes/governance` for the rest — but guardrails-policy and guardrails-redteam
+      # ship no test_*.py, so their main.py was never executed by CI at all (fixed 2026-07-28). The
+      # loop cannot rot the same way: a new governance recipe is covered the moment it lands.
+      - name: run every governance recipe offline
+        run: |
+          for f in recipes/governance/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
+          done
+      - name: pytest the governance recipes that ship a test file
         run: uv run --python ${{ matrix.python }} pytest recipes/governance
 
   sdk:
