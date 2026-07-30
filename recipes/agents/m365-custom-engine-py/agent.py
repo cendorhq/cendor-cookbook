@@ -28,6 +28,7 @@ The wrap map, in the order the handler hits it:
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -91,6 +92,27 @@ SESSION_CAP_USD = Decimal(os.environ.get("SESSION_CAP_USD", "5.00"))
 TURN_CAP_USD = Decimal(os.environ.get("TURN_CAP_USD", "0.05"))
 MAX_OUTPUT_TOKENS = 48
 CONTEXT_BUDGET_TOKENS = 1200
+
+# ⚠️ TRAP — **the output-cap parameter is not the same on every model, and the wrong one is a hard
+# 400 on every turn.** The reasoning families (o-series, gpt-5-*) reject `max_tokens` outright:
+#
+#   400 Unsupported parameter: 'max_tokens' is not supported with this model.
+#       Use 'max_completion_tokens' instead.
+#
+# Measured against an Azure AI Foundry `gpt-5-mini` deployment on api-version 2024-10-21 — which is
+# exactly the `AsyncAzureOpenAI(...)` swap `make_client()` offers below, so the recipe's own
+# documented Azure path used to fail on its first call. It matters here more than in a plain OpenAI
+# app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5
+# behind it, so no name heuristic can be authoritative. Hence: heuristic default, env override,
+# and a one-shot switch when the provider tells us which name it wants.
+CAP_PARAM = os.environ.get("OUTPUT_CAP_PARAM") or (
+    "max_completion_tokens" if re.match(r"(?i)^(o[1-9]|gpt-5)", MODEL) else "max_tokens"
+)
+# ⚠️ And once the cap is accepted, mind what it BUYS on a reasoning model: the cap covers reasoning
+# tokens too. Measured on the same `gpt-5-mini` deployment, `MAX_OUTPUT_TOKENS = 48` returned
+# `37 in / 48 out` with an EMPTY visible reply — the whole allowance went to hidden reasoning. The
+# governance numbers are all correct; there is simply no text. Raise the cap for a reasoning
+# deployment, or keep the demo cap and expect an empty answer.
 
 # ⚠️ TRAP — TurnState paths are scoped by the state **class name**, not by a lowercase word.
 # `state.get_value("conversation.spent_usd")` raises `ValueError: Scope 'conversation' not found`.
@@ -613,12 +635,28 @@ class GovernedAgent:
         # `(context, state) -> bool` (return `True`).
 
     # ------------------------------------------------------------------- the two turn shapes
+    async def _create(self, *, cap: int, **kw: Any) -> Any:
+        """One model call, with the output cap under whichever name this model accepts (see the
+        `CAP_PARAM` trap note at the top).
+
+        The retry costs nothing: the rejected call never reached the model, so there is no double
+        spend, and the switch is remembered process-wide so it happens at most once.
+        """
+        global CAP_PARAM
+        try:
+            return await self.client.chat.completions.create(**kw, **{CAP_PARAM: cap})
+        except Exception as exc:  # noqa: BLE001 — provider-agnostic on purpose (no openai import)
+            other = "max_completion_tokens" if CAP_PARAM == "max_tokens" else "max_tokens"
+            text = str(exc)
+            if other not in text or "nsupported" not in text:
+                raise
+            CAP_PARAM = other
+            return await self.client.chat.completions.create(**kw, **{CAP_PARAM: cap})
+
     async def _plain_turn(self, messages: list[dict], allowance: Decimal) -> tuple[str, bool]:
         try:
             with turn_budget(allowance, conversation_id="turn"):
-                resp = await self.client.chat.completions.create(
-                    model=MODEL, messages=messages, max_tokens=MAX_OUTPUT_TOKENS
-                )
+                resp = await self._create(cap=MAX_OUTPUT_TOKENS, model=MODEL, messages=messages)
         except BudgetExceeded:
             return (
                 "I stopped before calling the model — this turn's budget was already spent.",
@@ -645,14 +683,24 @@ class GovernedAgent:
             with turn_budget(
                 allowance, conversation_id=context.activity.conversation.id, stream=True
             ):
-                provider_stream = await self.client.chat.completions.create(
+                provider_stream = await self._create(
+                    cap=512,
                     model=MODEL,
                     messages=messages,
-                    max_tokens=512,
                     stream=True,
                     stream_options={"include_usage": True},
                 )
                 async for chunk in provider_stream:
+                    # ⚠️ **A chunk can carry NO choices.** With `stream_options={"include_usage":
+                    # True}` — which is how a streamed call reports real usage at all — OpenAI sends
+                    # a FINAL chunk whose `choices` list is EMPTY, carrying only `usage`. Measured
+                    # against openai-python 2.48.0: 9 chunks with include_usage, the 9th
+                    # `choices=[]` + `usage` present; 8 chunks without it, none empty. A fake stream
+                    # never emits that chunk, so `chunk.choices[0]` is green offline forever and
+                    # `IndexError`s on the first real streamed turn. (The TypeScript twin reads
+                    # `chunk.choices?.[0]?.delta?.content ?? ''`, which is why it never had this.)
+                    if not chunk.choices:
+                        continue
                     if piece := (chunk.choices[0].delta.content or ""):
                         collected.append(piece)
                         stream.queue_text_chunk(piece)

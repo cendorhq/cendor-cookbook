@@ -59,6 +59,26 @@ const INSTRUCTIONS =
 export const SESSION_CAP_USD = new Decimal(process.env.SESSION_CAP_USD ?? '5.00');
 const TURN_CAP_USD = new Decimal(process.env.TURN_CAP_USD ?? '0.05');
 const MAX_OUTPUT_TOKENS = 48;
+
+// ⚠️ TRAP — **the output-cap parameter is not the same on every model, and the wrong one is a hard
+// 400 on every turn.** The reasoning families (o-series, gpt-5-*) reject `max_tokens` outright:
+//
+//   400 Unsupported parameter: 'max_tokens' is not supported with this model.
+//       Use 'max_completion_tokens' instead.
+//
+// Measured against an Azure AI Foundry `gpt-5-mini` deployment on api-version 2024-10-21 — exactly
+// the `new AzureOpenAI({...})` swap `makeClient()` offers below. It matters more here than in a
+// plain OpenAI app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat`
+// with a gpt-5 behind it, so no name heuristic can be authoritative. Hence: heuristic default,
+// env override, and a one-shot switch when the provider tells us which name it wants.
+let CAP_PARAM =
+  process.env.OUTPUT_CAP_PARAM ??
+  (/^(o[1-9]|gpt-5)/i.test(MODEL) ? 'max_completion_tokens' : 'max_tokens');
+// ⚠️ And once the cap is accepted, mind what it BUYS on a reasoning model: the cap covers reasoning
+// tokens too. Measured on the same `gpt-5-mini` deployment, MAX_OUTPUT_TOKENS = 48 returned
+// `37 in / 48 out` with an EMPTY visible reply — the whole allowance went to hidden reasoning. The
+// governance numbers are all correct; there is simply no text. Raise the cap for a reasoning
+// deployment, or keep the demo cap and expect an empty answer.
 const CONTEXT_BUDGET_TOKENS = 1200;
 
 // TurnState in the JS port is a **property proxy** (`state.conversation.foo = …`), not Python's
@@ -515,14 +535,27 @@ export class GovernedAgent {
     });
   }
 
+  /**
+   * One model call, with the output cap under whichever name this model accepts (see the
+   * `CAP_PARAM` trap note at the top). The retry costs nothing — the rejected call never reached the
+   * model, so there is no double spend — and the switch is remembered so it happens at most once.
+   */
+  async create(cap, kw) {
+    try {
+      return await this.client.chat.completions.create({ ...kw, [CAP_PARAM]: cap });
+    } catch (err) {
+      const other = CAP_PARAM === 'max_tokens' ? 'max_completion_tokens' : 'max_tokens';
+      const text = String(err?.message ?? err);
+      if (!text.includes(other) || !text.includes('nsupported')) throw err;
+      CAP_PARAM = other;
+      return await this.client.chat.completions.create({ ...kw, [CAP_PARAM]: cap });
+    }
+  }
+
   async plainTurn(messages, allowance) {
     try {
       const resp = await turnBudget(allowance, { conversationId: 'turn' }, () =>
-        this.client.chat.completions.create({
-          model: MODEL,
-          messages,
-          max_tokens: MAX_OUTPUT_TOKENS,
-        }),
+        this.create(MAX_OUTPUT_TOKENS, { model: MODEL, messages }),
       );
       return { text: resp.choices[0].message.content ?? '', broke: false };
     } catch (err) {
@@ -547,10 +580,9 @@ export class GovernedAgent {
     let broke = false;
     try {
       await turnBudget(allowance, { conversationId: context.activity.conversation.id, stream: true }, async () => {
-        const providerStream = await this.client.chat.completions.create({
+        const providerStream = await this.create(512, {
           model: MODEL,
           messages,
-          max_tokens: 512,
           stream: true,
           stream_options: { include_usage: true },
         });

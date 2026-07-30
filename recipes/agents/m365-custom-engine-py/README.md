@@ -132,6 +132,32 @@ Each of these was measured against a real agent, and every one of them *looks* l
    JS twin carries `app.onTurn('afterTurn', async () => true)` and proves it with a negative control.
 10. **A second, un-instrumented client is invisible.** Budgets, gates and evidence only see calls
     through the client you wrapped. `uvx cendor-init doctor` static-checks that.
+11. **A stream chunk can carry NO choices — and a fake stream never proves it.** With
+    `stream_options={"include_usage": True}` (the only way a streamed call reports real usage)
+    OpenAI sends a **final chunk whose `choices` list is empty**, carrying only `usage`. Measured
+    against openai-python 2.48.0: **9** chunks with `include_usage`, the 9th `choices=[]`; **8**
+    without it, none empty. So `chunk.choices[0]` is green forever offline and `IndexError`s on the
+    first real streamed turn — which is exactly what this recipe did until 2026-07-30. Skip a
+    choice-less chunk. (The TypeScript twin reads `chunk.choices?.[0]?.delta?.content ?? ''`, so it
+    never had the bug; one language's optional chaining was doing load-bearing work.)
+12. **The output-cap parameter is not the same on every model, and the wrong one is a hard 400.**
+    The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`:
+    *"Unsupported parameter: 'max_tokens' is not supported with this model. Use
+    'max_completion_tokens' instead."* Measured against an Azure AI Foundry `gpt-5-mini` deployment
+    on api-version `2024-10-21` — i.e. the `AsyncAzureOpenAI(...)` swap this recipe offers. It bites
+    hardest on Azure because **a deployment name is arbitrary**: `MODEL` may be `prod-chat` with a
+    gpt-5 behind it, so no name heuristic is authoritative. `agent.py` defaults by name, honours
+    `OUTPUT_CAP_PARAM`, and switches once if the provider names the other parameter.
+13. **On a reasoning model the cap covers reasoning tokens, so a small cap can return NOTHING.**
+    Same deployment, `MAX_OUTPUT_TOKENS = 48`: `37 in / 48 out` with an **empty** visible reply — the
+    whole allowance went to hidden reasoning. Every governance number was correct; there was simply
+    no text.
+14. **An Azure deployment name is UNPRICED, so a USD budget cannot bind to it.** The same live run
+    warns: *"no price for model 'gpt-5-mini', so the active USD budget (`on_exceed='block'`) counts
+    its calls as $0 and cannot enforce a USD cap."* Register a rate
+    (`cendor.core.prices.add`/`register`), use a `tokens=` cap, or
+    `configure(on_unpriced="raise")` to refuse unpriced calls. The token counts and the audit chain
+    are exact either way — only the money is unknown.
 
 ## `$0` whole-agent CI
 

@@ -134,6 +134,28 @@ Each was measured against a real agent, and every one of them *looks* like worki
     coroutines and an un-awaited `end_stream()` is a silent `RuntimeWarning` that loses the last chunk.
 11. **A second, un-instrumented client is invisible.** Budgets, gates and evidence only see calls
     through the client you wrapped. `npx @cendor/init doctor` static-checks that.
+12. **A stream chunk can carry NO choices.** With `stream_options: { include_usage: true }` (the only
+    way a streamed call reports real usage) OpenAI sends a **final chunk whose `choices` array is
+    empty**, carrying only `usage`. Measured: **9** chunks with `include_usage`, the 9th `choices=[]`;
+    **8** without it, none empty. This port reads `chunk.choices?.[0]?.delta?.content ?? ''` and so
+    survives it — the Python twin used `chunk.choices[0]` and crashed on its first real streamed turn
+    (fixed 2026-07-30). Keep the optional chaining; it is load-bearing, not defensive noise.
+13. **The output-cap parameter is not the same on every model, and the wrong one is a hard 400.**
+    The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`: *"Unsupported parameter:
+    'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."* Measured
+    against an Azure AI Foundry `gpt-5-mini` deployment on api-version `2024-10-21` — the
+    `new AzureOpenAI({...})` swap this recipe offers. It bites hardest on Azure because **a deployment
+    name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5 behind it, so no name heuristic is
+    authoritative. `agent.mjs` defaults by name, honours `OUTPUT_CAP_PARAM`, and switches once if the
+    provider names the other parameter.
+14. **On a reasoning model the cap covers reasoning tokens, so a small cap can return NOTHING.** Same
+    deployment, `MAX_OUTPUT_TOKENS = 48`: `37 in / 48 out` with an **empty** visible reply — the whole
+    allowance went to hidden reasoning. Every governance number was correct; there was simply no text.
+15. **An Azure deployment name is UNPRICED, so a USD budget cannot bind to it.** The same live run
+    warns: *"no price for model 'gpt-5-mini' … counts its calls as $0 and cannot enforce a USD cap."*
+    Register a rate, use a token cap, or refuse unpriced calls. Token counts and the audit chain stay
+    exact — only the money is unknown. (This is also why `index.mjs`'s `cost_usd > 0` assertion is an
+    OpenAI-path assertion: against an unpriced deployment it correctly reads `$0`.)
 
 ## `$0` whole-agent CI
 
