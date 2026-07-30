@@ -66,7 +66,7 @@ const MAX_OUTPUT_TOKENS = 48;
 //   400 Unsupported parameter: 'max_tokens' is not supported with this model.
 //       Use 'max_completion_tokens' instead.
 //
-// Measured against an Azure AI Foundry `gpt-5-mini` deployment on api-version 2024-10-21 — exactly
+// Measured against a Foundry deployment running `gpt-5-mini` (api-version 2024-10-21) — exactly
 // the `new AzureOpenAI({...})` swap `makeClient()` offers below. It matters more here than in a
 // plain OpenAI app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat`
 // with a gpt-5 behind it, so no name heuristic can be authoritative. Hence: heuristic default,
@@ -75,7 +75,7 @@ let CAP_PARAM =
   process.env.OUTPUT_CAP_PARAM ??
   (/^(o[1-9]|gpt-5)/i.test(MODEL) ? 'max_completion_tokens' : 'max_tokens');
 // ⚠️ And once the cap is accepted, mind what it BUYS on a reasoning model: the cap covers reasoning
-// tokens too. Measured on the same `gpt-5-mini` deployment, MAX_OUTPUT_TOKENS = 48 returned
+// tokens too. Measured on the same deployment, MAX_OUTPUT_TOKENS = 48 returned
 // `37 in / 48 out` with an EMPTY visible reply — the whole allowance went to hidden reasoning. The
 // governance numbers are all correct; there is simply no text. Raise the cap for a reasoning
 // deployment, or keep the demo cap and expect an empty answer.

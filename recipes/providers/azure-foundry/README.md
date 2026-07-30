@@ -48,7 +48,7 @@ list price for whatever model sits behind the deployment. Cendor never guesses t
 
 ## Traps this recipe exists to teach
 
-Each one was measured against a real Foundry `gpt-5-mini` deployment on api-version `2024-10-21`.
+Each one was measured against a real Foundry deployment running `gpt-5-mini` (api-version `2024-10-21`).
 
 1. **An unpriced model makes a USD cap a no-op, not an error.** `on_exceed="block"` with no price row
    projects `$0`, so nothing ever exceeds. cendor raises `UnpricedModelWarning` — and
@@ -61,7 +61,7 @@ Each one was measured against a real Foundry `gpt-5-mini` deployment on api-vers
    deployment name cannot tell you which family it is**: this recipe defaults by name, and
    `OUTPUT_CAP_PARAM` overrides it.
 3. **On a reasoning deployment the output cap covers reasoning tokens, so a small cap returns
-   nothing.** Measured on `gpt-5-mini` with a 48-token cap: `37 in / 48 out` and an **empty** visible
+   nothing.** Measured with a 48-token cap on that deployment: `37 in / 48 out` and an **empty** visible
    reply. Usage, cost and the audit chain were all correct; there was simply no text.
 4. **Foundry's *Agent Service* is a different integration.** If the loop runs server-side, you never
    hold the client, so there is nothing to `instrument()` — ingest its OpenTelemetry instead. That is

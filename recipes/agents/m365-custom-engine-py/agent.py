@@ -99,7 +99,7 @@ CONTEXT_BUDGET_TOKENS = 1200
 #   400 Unsupported parameter: 'max_tokens' is not supported with this model.
 #       Use 'max_completion_tokens' instead.
 #
-# Measured against an Azure AI Foundry `gpt-5-mini` deployment on api-version 2024-10-21 — which is
+# Measured against a Foundry deployment running `gpt-5-mini` (api-version 2024-10-21) — which is
 # exactly the `AsyncAzureOpenAI(...)` swap `make_client()` offers below, so the recipe's own
 # documented Azure path used to fail on its first call. It matters here more than in a plain OpenAI
 # app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5
@@ -109,7 +109,7 @@ CAP_PARAM = os.environ.get("OUTPUT_CAP_PARAM") or (
     "max_completion_tokens" if re.match(r"(?i)^(o[1-9]|gpt-5)", MODEL) else "max_tokens"
 )
 # ⚠️ And once the cap is accepted, mind what it BUYS on a reasoning model: the cap covers reasoning
-# tokens too. Measured on the same `gpt-5-mini` deployment, `MAX_OUTPUT_TOKENS = 48` returned
+# tokens too. Measured on the same deployment, `MAX_OUTPUT_TOKENS = 48` returned
 # `37 in / 48 out` with an EMPTY visible reply — the whole allowance went to hidden reasoning. The
 # governance numbers are all correct; there is simply no text. Raise the cap for a reasoning
 # deployment, or keep the demo cap and expect an empty answer.

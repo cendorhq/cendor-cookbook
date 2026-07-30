@@ -143,7 +143,7 @@ Each was measured against a real agent, and every one of them *looks* like worki
 13. **The output-cap parameter is not the same on every model, and the wrong one is a hard 400.**
     The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`: *"Unsupported parameter:
     'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."* Measured
-    against an Azure AI Foundry `gpt-5-mini` deployment on api-version `2024-10-21` — the
+    against a Foundry deployment running `gpt-5-mini` (api-version `2024-10-21`) — the
     `new AzureOpenAI({...})` swap this recipe offers. It bites hardest on Azure because **a deployment
     name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5 behind it, so no name heuristic is
     authoritative. `agent.mjs` defaults by name, honours `OUTPUT_CAP_PARAM`, and switches once if the
@@ -152,7 +152,7 @@ Each was measured against a real agent, and every one of them *looks* like worki
     deployment, `MAX_OUTPUT_TOKENS = 48`: `37 in / 48 out` with an **empty** visible reply — the whole
     allowance went to hidden reasoning. Every governance number was correct; there was simply no text.
 15. **An Azure deployment name is UNPRICED, so a USD budget cannot bind to it.** The same live run
-    warns: *"no price for model 'gpt-5-mini' … counts its calls as $0 and cannot enforce a USD cap."*
+    warns: *"no price for model '<your-deployment>' … counts its calls as $0 and cannot enforce a USD cap."*
     Register a rate, use a token cap, or refuse unpriced calls. Token counts and the audit chain stay
     exact — only the money is unknown. (This is also why `index.mjs`'s `cost_usd > 0` assertion is an
     OpenAI-path assertion: against an unpriced deployment it correctly reads `$0`.)

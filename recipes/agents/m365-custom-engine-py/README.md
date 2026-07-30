@@ -143,8 +143,8 @@ Each of these was measured against a real agent, and every one of them *looks* l
 12. **The output-cap parameter is not the same on every model, and the wrong one is a hard 400.**
     The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`:
     *"Unsupported parameter: 'max_tokens' is not supported with this model. Use
-    'max_completion_tokens' instead."* Measured against an Azure AI Foundry `gpt-5-mini` deployment
-    on api-version `2024-10-21` — i.e. the `AsyncAzureOpenAI(...)` swap this recipe offers. It bites
+    'max_completion_tokens' instead."* Measured against a Foundry deployment running `gpt-5-mini`
+    (api-version `2024-10-21`) — i.e. the `AsyncAzureOpenAI(...)` swap this recipe offers. It bites
     hardest on Azure because **a deployment name is arbitrary**: `MODEL` may be `prod-chat` with a
     gpt-5 behind it, so no name heuristic is authoritative. `agent.py` defaults by name, honours
     `OUTPUT_CAP_PARAM`, and switches once if the provider names the other parameter.
@@ -153,7 +153,7 @@ Each of these was measured against a real agent, and every one of them *looks* l
     whole allowance went to hidden reasoning. Every governance number was correct; there was simply
     no text.
 14. **An Azure deployment name is UNPRICED, so a USD budget cannot bind to it.** The same live run
-    warns: *"no price for model 'gpt-5-mini', so the active USD budget (`on_exceed='block'`) counts
+    warns: *"no price for model '<your-deployment>', so the active USD budget (`on_exceed='block'`) counts
     its calls as $0 and cannot enforce a USD cap."* Register a rate
     (`cendor.core.prices.add`/`register`), use a `tokens=` cap, or
     `configure(on_unpriced="raise")` to refuse unpriced calls. The token counts and the audit chain
