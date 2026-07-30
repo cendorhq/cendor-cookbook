@@ -36,7 +36,9 @@ audit file  : /tmp/…/audit.jsonl
 ```
 
 The loop and budgets, the redaction, and the hash-chained audit are all real; only the model call is
-a stub. Drop the `client=` argument and set `OPENAI_API_KEY` to run it live — the governance code is
+a stub. Drop the `client=` argument and set `OPENAI_API_KEY` to run it live — you also need the
+provider SDK, which is **not** a base dependency here, so use `uv run --group apps python ...` (or
+`uv run --with openai ...`). The governance code is
 identical. Want to drop down to the libraries directly? Everything here is `cendor-core` +
 `cendor-tokenguard` + `cendor-acttrace` under the hood.
 

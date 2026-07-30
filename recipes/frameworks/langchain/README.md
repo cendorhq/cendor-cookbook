@@ -39,7 +39,11 @@ one bus stream, model + tool:
   ToolCall  lookup_order  args=['8823']  -> {'order_id': '8823', 'status': 'refunded'}
 ```
 
-**Live cassette (RECORD ✓, ships unrecorded):** `RECORD=1 OPENAI_API_KEY=sk-... uv run --group
-frameworks-langchain python .../main.py`.
+**Live swap (`RECORD=1`) — a live run, *not* a recording.** `RECORD=1 OPENAI_API_KEY=sk-... uv run
+--group frameworks-langchain python .../main.py` swaps the fake completions object for a real
+`OpenAI().chat.completions` and runs the chain against the live API. Unlike the `providers/*` RECORD
+paths, **this recipe imports no cassette and writes no fixture** — verified by running it live
+(2026-07-30): the spend and the audit entries are real, and no `fixtures/` directory appears. The env
+var name is kept for consistency with the other live switches.
 
 Libraries: `core`, `tokenguard`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

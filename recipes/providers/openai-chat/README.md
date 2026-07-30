@@ -29,7 +29,8 @@ Five turns ran ($0.45); the sixth was blocked before it reached the model. All c
 `prices.estimate` on the stated token counts.
 
 **Live cassette (RECORD ✓, ships unrecorded):** a maintainer records a real call once with
-`RECORD=1 OPENAI_API_KEY=sk-... uv run python .../main.py` (needs `openai` installed); the
-redacted cassette is committed and CI replays it. Until then, CI runs the fake-client path above.
+`RECORD=1 OPENAI_API_KEY=sk-... uv run --group apps python .../main.py` — `openai` is not a base
+dependency of this repo, so the `--group apps` is required. The recording lands in this recipe's
+`fixtures/` directory; **no fixture is committed**, so CI always runs the fake-client path above.
 
 Libraries: `core`, `tokenguard` · Offline ✓ · [← all recipes](../../../README.md)

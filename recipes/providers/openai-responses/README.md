@@ -25,6 +25,8 @@ The cached input and reasoning output are captured, not dropped, and the cost is
 `cost_estimated` (priced offline from the snapshot).
 
 **Live cassette (RECORD ✓, ships unrecorded):** record a real Responses call with
-`RECORD=1 OPENAI_API_KEY=sk-... uv run python .../main.py` (needs `openai` installed).
+`RECORD=1 OPENAI_API_KEY=sk-... uv run --group apps python .../main.py` — `openai` is not a base
+dependency of this repo, so `--group apps` (or `uv run --with openai`) is required. **No fixture is
+committed**; CI runs the fake-client path above.
 
 Libraries: `core`, `tokenguard` · Offline ✓ · [← all recipes](../../../README.md)

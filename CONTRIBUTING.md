@@ -27,7 +27,7 @@ Ship the recipe **unrecorded** — the fake-client path is what keeps CI green u
 | Piece | Rule |
 |---|---|
 | `README.md` | the **pain** (2–3 lines, in a developer's words) → **what the recipe shows** → the **run command** → an **expected-output** snippet that includes the money shot |
-| `main.py` | **≤ ~80 lines**, copy-paste runnable as `uv run python recipes/<category>/<name>/main.py` |
+| `main.py` | **~80 lines is the target, not a gate** — copy-paste runnable as `uv run python recipes/<category>/<name>/main.py`. Some recipes are legitimately longer (the agent-host and app recipes are hundreds of lines, because the *host* is the point); the real rule is that a reader can follow it top to bottom in one sitting. If you are over ~80 lines, make sure every extra line is teaching something. |
 | Offline | green with **no key and no network** — fake provider-shaped client (default) or a committed cassette fixture |
 | Honest claims | **no invented numbers.** Any cost printed comes from `prices.estimate(...)` on stated token counts. Frameworks "work alongside" Cendor — never "official integration" |
 | No tool→tool imports | recipes compose libraries only through the documented seams (`instrument()`, the `cendor.core` bus, protocols) — never `import cendor.<toolA>` *from inside* `cendor.<toolB>` glue |
@@ -37,7 +37,7 @@ Ship the recipe **unrecorded** — the fake-client path is what keeps CI green u
 ```
 recipes/<category>/<name>/
 ├── README.md      # pain → shows → run → expected output (money shot)
-└── main.py        # ≤ ~80 lines, offline, uv run python .../main.py
+└── main.py        # ~80 lines target (not a gate), offline, uv run python .../main.py
 ```
 
 `README.md` skeleton:

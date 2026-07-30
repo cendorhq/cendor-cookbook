@@ -231,11 +231,12 @@ additive, not a conflict.
 
 ## Pins
 
-The 2026-07-27 PyPI shelf. `pyproject.toml` at the repo root carries the cendor floors; the host SDK
-is in the `agents-m365` dependency group.
+The PyPI shelf this recipe was **live-verified against on 2026-07-30** — a record of what was run, not
+a lockfile. `pyproject.toml` at the repo root carries the cendor floors (all `>=`, so a fresh `uv sync`
+resolves forward within major 1); the host SDK is in the `agents-m365` dependency group.
 
 ```
-cendor-core 1.14.2 · cendor-tokenguard 1.6.1 · cendor-guardrails 1.6.1 · cendor-contextkit 1.0.3
+cendor-core 1.14.2 · cendor-tokenguard 1.6.2 · cendor-guardrails 1.6.1 · cendor-contextkit 1.0.3
 cendor-squeeze 1.1.1 · cendor-cassette 1.1.1 · cendor-acttrace 1.14.0
 microsoft-agents-hosting-aiohttp 1.2.0
 ```

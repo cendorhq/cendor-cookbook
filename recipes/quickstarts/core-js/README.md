@@ -32,4 +32,19 @@ Cost is priced offline from the bundled snapshot and labeled `cost_estimated`; t
 `exact` because `js-tiktoken` ships with `@cendor/core`. The cost matches the Python recipe to the
 last digit — same price dataset, same decimal math (value-equal; `decimal.js` prints `0.0065`).
 
+## Pins
+
+The npm shelf this recipe was **verified against on 2026-07-30** — a record of what was run, not a
+lockfile. `package.json` declares a caret and at `3.x` a caret spans the whole major, so a fresh
+`npm install` resolves forward within major 3: a newer patch than the number below is expected, not
+drift. `package-lock.json` is deliberately **not** committed, for the same reason.
+
+```
+@cendor/core 3.0.1
+```
+
+⚠️ `npm install` over an existing `node_modules` is **lock-obedient, not a refresh** — it will happily
+leave you on an older 3.x. To move onto what is actually published:
+`rm -rf node_modules package-lock.json && npm install`.
+
 Libraries: `@cendor/core` · Offline ✓ · TypeScript · [← all recipes](../../../README.md)

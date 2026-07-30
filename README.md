@@ -86,7 +86,10 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [openai-responses](recipes/providers/openai-responses/) | provider · RECORD | Capture reasoning + cached tokens on the Responses API | `core` `tokenguard` | ✓ |
 | [anthropic](recipes/providers/anthropic/) | provider · RECORD | Price prompt-cache reads/writes correctly, audited | `core` `tokenguard` `acttrace` | ✓ |
 | [ollama-local](recipes/providers/ollama-local/) | provider · Local | Budgeted, recorded, audited turn on a $0 local model | `core` `tokenguard` `cassette` `acttrace` | ✓ |
-| [langchain](recipes/frameworks/langchain/) | framework · RECORD | Cost + audit without changing LangChain code (+LangGraph) | `core` `tokenguard` `acttrace` | ✓ |
+| [azure-foundry](recipes/providers/azure-foundry/) | provider · RECORD | Your **deployment name** is unpriced, so a USD cap silently never binds — then one `register_model_price` line and it does | `core` `tokenguard` `sdk` | ✓ |
+| [gemini](recipes/providers/gemini/) | provider · RECORD | `usage_metadata`, not `usage` — one seam, budget + audit unchanged | `core` `tokenguard` `acttrace` | ✓ |
+| [bedrock](recipes/providers/bedrock/) | provider · RECORD | camelCase Converse usage, and the two caps that work on an unpriced marketplace id | `core` `tokenguard` `sdk` | ✓ |
+| [langchain](recipes/frameworks/langchain/) | framework · Live swap | Cost + audit without changing LangChain code (+LangGraph) | `core` `tokenguard` `acttrace` | ✓ |
 | [openai-agents-sdk](recipes/frameworks/openai-agents-sdk/) | framework · RECORD | Budget + audit a loop the Agents SDK fully owns | `core` `tokenguard` `acttrace` | ✓ |
 | [llamaindex](recipes/frameworks/llamaindex/) | framework | Pack RAG retrieval to a token budget, reversibly | `core` `contextkit` `squeeze` | ✓ |
 | [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
@@ -104,10 +107,10 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [custom-category](recipes/governance/custom-category/) | governance | `rules.custom_category` catches a paraphrase a keyword denylist misses (semantic by-example); composes with `keyword_deny` | `core` `guardrails` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
 | [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
-| [openai-agents-guardrail](recipes/bridges/openai-agents-guardrail/) | bridges | A cendor Guardrail as an OpenAI Agents SDK `@input_guardrail` | `guardrails` + `openai-agents` | ✓ |
-| [claude-agent-pretooluse](recipes/bridges/claude-agent-pretooluse/) | bridges | A cendor Guardrail as a Claude Agent SDK `PreToolUse` hook (deny a tool call) | `guardrails` + `claude-agent-sdk` | ✓ |
-| [mcp-tool-gating](recipes/bridges/mcp-tool-gating/) | bridges | Gate a `FastMCP` server's tools with a cendor Guardrail at the tool boundary | `guardrails` + `mcp` | ✓ |
-| [langchain-middleware](recipes/bridges/langchain-middleware/) | bridges | A cendor Guardrail as a LangChain `before_model` agent middleware | `guardrails` + `langchain` | ✓ |
+| [openai-agents-guardrail](recipes/bridges/openai-agents-guardrail/) | bridge | A cendor Guardrail as an OpenAI Agents SDK `@input_guardrail` | `guardrails` + `openai-agents` | ✓ |
+| [claude-agent-pretooluse](recipes/bridges/claude-agent-pretooluse/) | bridge | A cendor Guardrail as a Claude Agent SDK `PreToolUse` hook (deny a tool call) | `guardrails` + `claude-agent-sdk` | ✓ |
+| [mcp-tool-gating](recipes/bridges/mcp-tool-gating/) | bridge | Gate a `FastMCP` server's tools with a cendor Guardrail at the tool boundary | `guardrails` + `mcp` | ✓ |
+| [langchain-middleware](recipes/bridges/langchain-middleware/) | bridge | A cendor Guardrail as a LangChain `before_model` agent middleware | `guardrails` + `langchain` | ✓ |
 
 **RECORD** recipes ship green offline against a fake client and carry a `RECORD=1` path a
 maintainer runs once with a real key to capture a replayable cassette (secrets redacted on write).
@@ -172,11 +175,14 @@ proves the round-trip rather than shipping a fixture: it records into a `tempfil
 and immediately replays from it, asserting the second pass made **zero** calls. Nothing is committed,
 because the artifact is the demonstration.
 
-**Committed fixture vs. generated recording.** `.gitignore` draws the line deliberately: a recipe's
-own `fixtures/` directory is a reviewed input, added explicitly and read by CI; anything a `RECORD=1`
-maintainer path writes lands in `**/_recordings/`, which is **ignored** — those are generated
-artifacts, never fixtures. So a maintainer recording against a real key cannot accidentally commit
-one (secrets are redacted on write regardless).
+**Committed fixture vs. generated recording — and where `RECORD=1` actually writes.** A recipe's own
+`fixtures/` directory is a reviewed input, added explicitly and read by CI. ⚠️ **A `RECORD=1` /
+`RERECORD=1` run writes straight into that same `fixtures/` directory** — it does *not* go to the
+ignored `**/_recordings/` path (that pattern is `.gitignore`d for ad-hoc local recordings and is not
+where any recipe writes). So a maintainer recording against a real key **dirties tracked-adjacent
+files by design**: check `git diff` afterwards and either commit the refresh deliberately or
+`git checkout -- <recipe>/fixtures/` / delete the new directory. Cassette redacts ids and secrets on
+write regardless, and the RECORD recipes ship **unrecorded** — CI runs their fake-client path.
 
 Costs shown anywhere come from `prices.estimate` on the stated token counts — no invented numbers.
 

@@ -23,8 +23,11 @@ updates:
       - dependency-name: gradio
         versions: [">=6.0.0, <7.0.0"]
 
-  # The two TypeScript recipes — each pins the published @cendor/* packages, so keep them
-  # current as new 0.x minors ship (this is the drift class that previously rotted silently).
+  # The THREE TypeScript recipes — each pins the published @cendor/* packages directly, so keep them
+  # current as new releases ship. This is the drift class that rots SILENTLY GREEN: a caret pin only
+  # resolves within its major, so a stale pin keeps passing CI on an old shelf while the recipe stops
+  # teaching what is published. `m365-custom-engine-js` carries seven @cendor/* pins of its own and
+  # was unmanaged here until 2026-07-30 — the one set nothing was watching.
   - package-ecosystem: npm
     directory: /recipes/quickstarts/core-js
     schedule:
@@ -33,6 +36,12 @@ updates:
       prefix: chore(deps)
   - package-ecosystem: npm
     directory: /recipes/sdk/governed-agent-js
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(deps)
+  - package-ecosystem: npm
+    directory: /recipes/agents/m365-custom-engine-js
     schedule:
       interval: weekly
     commit-message:

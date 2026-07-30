@@ -9,8 +9,13 @@ Run the suite:
   uv run pytest recipes/testing/pytest-cassette
   uv run pytest recipes/testing/pytest-cassette -n auto     # parallel, still 0 calls
 
-Re-record the committed cassettes after an intentional API change:
+Re-record the committed cassettes:
   RERECORD=1 uv run pytest recipes/testing/pytest-cassette
+
+⚠️ This recipe's client is a **fake** (`make_agent` below), so `RERECORD=1` re-records the fake
+and needs **no key and no network** — it is how you refresh the committed fixtures after changing
+the fake or the agent's call shape, not how you capture real traffic. Point `make_agent` at a real
+client if you want that; the cassette mechanics are identical either way.
 """
 
 import os
