@@ -35,7 +35,7 @@ dev = [
   "pytest>=8,<10",
   "pytest-xdist>=3,<4",
   "pytest-asyncio>=0.24,<1.5",
-  "ruff==0.15.20",
+  "ruff==0.16.0",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
 # isolation. Each carries an upper bound at the next breaking release, so one framework's
