@@ -13,7 +13,13 @@ Offline: fake boto3 `bedrock-runtime` shape. Run:
 
 Record a real cassette (maintainer, needs AWS credentials + `boto3` installed):
   RECORD=1 uv run --with boto3 python recipes/providers/bedrock/main.py
-  # env: AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION BEDROCK_MODEL_ID
+  # IAM key pair:      AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION BEDROCK_MODEL_ID
+  # Bedrock API key:   AWS_BEARER_TOKEN_BEDROCK AWS_REGION BEDROCK_MODEL_ID
+  #   ^ a Bedrock API key is bearer auth and must be the ONLY credential set. Parked in the IAM
+  #     variables instead it fails `UnrecognizedClientException: The security token included in the
+  #     request is invalid`, which reads like a dead or expired credential and is neither. The key
+  #     id gives it away: `BedrockAPIKey-…` (34 chars) and a ~132-char `ABSK…` secret, where SigV4
+  #     is `AKIA…`/`ASIA…` (20) + 40. See the README.
 """
 
 import os

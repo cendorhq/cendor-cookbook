@@ -93,6 +93,13 @@ def main() -> None:
         with audit.decision(input="refund please", actor="agent"):
             try:
                 # $5-per-call model here is ~$0.0075; a $0.01 cap lets call 1 run and blocks call 2.
+                # ⚠️ That arithmetic is the FAKE's: `prompt_tokens=1000, completion_tokens=500`
+                # above is what makes call 2 cross $0.01. A real gpt-4o answer to "refund order 42"
+                # is ~40 output tokens, so two real calls cost well under the cap, the breaker never
+                # fires, no `budget_event` is chained, and the assertion below fails — measured live
+                # 2026-07-31. The mirroring itself is unaffected (7 spans, 312 tokens on
+                # `gen_ai.client.token.usage`); only the *block* needs the fake's numbers.
+                # Swapping in a real client means lowering this cap until it binds on real usage.
                 with budget(usd=0.01, on_exceed="block", scope="session"):
                     client.chat.completions.create(
                         model="gpt-4o", messages=[{"role": "user", "content": "refund order 42"}]

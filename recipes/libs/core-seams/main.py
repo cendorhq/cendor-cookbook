@@ -90,6 +90,9 @@ def main() -> None:
     add_stream_observer(meter)
     try:
         streamed = fake_client(stream_chunks=12)
+        # `messages=[]` is fine for a fake and a hard 400 on any real provider ("[] is too short").
+        # Harmless here — this recipe is about core's seams, not a portable call shape — but if you
+        # lift this line into your own code, send a real message.
         consumed = list(streamed.chat.completions.create(model=MODEL, messages=[], stream=True))
     finally:
         remove_stream_observer(meter)
