@@ -20,7 +20,11 @@ dependencies = [
   # >=1.15.0 for the providers/ recipes: `cendor.core.prices.register_model_price(...)` is public on
   # the LIBRARIES door (before it, pricing a deployment needed the cendor-sdk distribution), and
   # `generate_content_stream` is captured, which is what the gemini recipe's streaming section shows.
-  "cendor-core>=1.15.0,<2.0",
+  # >=1.17.0: Anthropic messages.stream()/parse() are captured (they emitted nothing at all
+  # before), and a Reroute no longer ends the interceptor chain — which the combos/ recipes
+  # depend on, since several install a budget and a guard on the same call and before 1.17.0
+  # exactly one of them took effect, silently, depending on registration order.
+  "cendor-core>=1.17.0,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
