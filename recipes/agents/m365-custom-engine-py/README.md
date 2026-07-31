@@ -159,10 +159,12 @@ Each of these was measured against a real agent, and every one of them *looks* l
     no text.
 14. **An Azure deployment name is UNPRICED, so a USD budget cannot bind to it.** The same live run
     warns: *"no price for model '<your-deployment>', so the active USD budget (`on_exceed='block'`) counts
-    its calls as $0 and cannot enforce a USD cap."* Register a rate
-    (`cendor.core.prices.add`/`register`), use a `tokens=` cap, or
-    `configure(on_unpriced="raise")` to refuse unpriced calls. The token counts and the audit chain
-    are exact either way — only the money is unknown.
+    its calls as $0 and cannot enforce a USD cap."* Name the model your deployment serves —
+    `prices.register_deployment(MODEL, like="gpt-4o")` (`cendor-core` ≥ 1.16.0) — or supply exact rates
+    with `prices.register_model_price(MODEL, input=…, output=…)`; alternatively use a `tokens=` cap,
+    which needs no rate at all, or `configure(on_unpriced="raise")` to refuse unpriced calls outright.
+    The token counts and the audit chain are exact either way — only the money is unknown. See
+    [`providers/azure-foundry`](../../providers/azure-foundry/) for that failure measured end to end.
 
 ## `$0` whole-agent CI
 
