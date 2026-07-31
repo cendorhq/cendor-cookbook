@@ -202,7 +202,21 @@ def main() -> None:
     print("--- $0 whole-agent CI ------------------------------------------")
     print(f"  recorded    : {replay['recorded']}   ({replay['cassette_bytes']} bytes)")
     print(f"  replayed    : {replay['replayed']}   no key, no network, no shim")
-    print(f"  identical   : {replay['recorded'] == replay['replayed']}")
+    identical = replay["recorded"] == replay["replayed"]
+    print(f"  identical   : {identical}")
+    # ⚠️ `identical` is only evidence if there was something to compare. Two empty strings are equal,
+    # and that is exactly what this printed against a live `gpt-5-mini` deployment on 2026-07-31:
+    # `MAX_OUTPUT_TOKENS = 48` was consumed entirely by reasoning tokens, so every reply was `''`,
+    # `identical: True`, and the replay proof asserted nothing at all. Say so rather than let a
+    # vacuous True read as a pass.
+    if not any(replay["recorded"]):
+        print(
+            "  ⚠️ VACUOUS   : every recorded reply is empty, so 'identical' compares nothing. On a "
+            f"reasoning model the {agent_mod.MAX_OUTPUT_TOKENS}-token cap can be spent entirely on "
+            "hidden "
+            "reasoning — raise MAX_OUTPUT_TOKENS (or use a non-reasoning deployment) to make this "
+            "proof mean something. Governance above is unaffected; the numbers there are real."
+        )
 
 
 if __name__ == "__main__":

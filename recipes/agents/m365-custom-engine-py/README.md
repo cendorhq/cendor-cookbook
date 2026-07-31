@@ -166,6 +166,19 @@ Each of these was measured against a real agent, and every one of them *looks* l
     The token counts and the audit chain are exact either way — only the money is unknown. See
     [`providers/azure-foundry`](../../providers/azure-foundry/) for that failure measured end to end.
 
+    ⚠️ **This recipe now does it for you, and the reason is worth reading.** Until 2026-07-31 this
+    entry described the trap and `agent.py` did not act on it — so the *documented* Azure swap ran
+    green while doing nothing. Measured against the `gpt-5-mini` deployment: `cost: $0` on every
+    turn, and the session cap, the pre-flight refusal **and** the mid-stream breaker all printed
+    `ok` while enforcing nothing. `main.py` still exited **0**, and the `$0` replay proof below
+    compared two empty strings and reported `identical: True`. A transcript that looks like five
+    passing governance demos and is five no-ops is worse than a crash, because nothing tells you.
+    `GovernedAgent.__init__` now calls `price_the_deployment()` before anything can spend, which
+    registers `MODEL` like `AZURE_BASE_MODEL` (default `gpt-4o-mini`) when it has no rate card —
+    and **raises** on a base model cendor does not know, rather than leaving it quietly at $0. With
+    it, the same live Azure run reports `$0.0000343500`, `broke_on_budget`, `session_cap_reached`
+    and `preflight_refused`. A plain OpenAI model name is already priced, so it is a no-op there.
+
 ## `$0` whole-agent CI
 
 `main.py`'s last section records the model calls once, then replays **the entire agent** — HTTP →

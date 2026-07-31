@@ -119,6 +119,31 @@ CAP_PARAM = os.environ.get("OUTPUT_CAP_PARAM") or (
 SPEND_KEY = "ConversationState.cendor_spent_usd"
 HISTORY_KEY = "ConversationState.history"
 
+# ⚠️ TRAP — **an unpriced model turns every USD guard in this file into a silent no-op, and the
+# agent still exits 0.** An Azure deployment name is arbitrary (`prod-chat`, `gpt-5-mini`, …) and
+# carries no rate card, so tokenguard counts its calls as $0. Measured 2026-07-31 against the
+# `gpt-5-mini` deployment that `make_client()`'s Azure swap points at: every governed turn reported
+# `cost: $0`, and the session cap, the pre-flight refusal AND the mid-stream breaker all printed
+# `ok` while doing nothing at all — a transcript that looks like five passing governance demos and
+# is five no-ops. That is worse than a crash, because nothing tells you.
+#
+# So price the deployment by naming the model behind it (`cendor-core` >= 1.16), exactly as
+# `recipes/providers/azure-foundry` does, and refuse to run unpriced rather than pretend:
+#   BASE_MODEL names the real model; a name cendor does not know RAISES rather than silently $0.
+BASE_MODEL = os.environ.get("AZURE_BASE_MODEL", "gpt-4o-mini")
+
+
+def price_the_deployment() -> bool:
+    """Give `MODEL` a rate card if it has none. Returns True if a registration was needed.
+
+    A plain OpenAI model name (`gpt-4o-mini`) is already priced and this is a no-op. An Azure
+    deployment name is not, and without this every dollar figure below is $0.
+    """
+    if MODEL in prices.models():
+        return False
+    prices.register_deployment(MODEL, like=BASE_MODEL)  # raises on an unknown BASE_MODEL
+    return True
+
 
 # ─────────────────────────────────────────────────── the instrumented client (one line, at startup)
 
@@ -459,6 +484,10 @@ class GovernedAgent:
     def __init__(
         self, *, audit_path: str, storage: Any = None, session_cap_usd: Decimal | None = None
     ) -> None:
+        # Price MODEL first. Every USD guard below — the turn cap, the session cap, the pre-flight
+        # projection, the mid-stream breaker — reads $0 for an unpriced model and enforces nothing,
+        # silently. Do this before anything that spends. See `price_the_deployment()`.
+        self.priced_deployment = price_the_deployment()
         self.client = make_client()
         self.input_gate, self.output_gate = input_gate(), output_gate()
         self.session_cap_usd = SESSION_CAP_USD if session_cap_usd is None else session_cap_usd
