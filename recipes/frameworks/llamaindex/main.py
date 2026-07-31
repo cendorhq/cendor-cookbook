@@ -76,6 +76,12 @@ def main() -> None:
     client.chat.completions.create(model=MODEL, messages=messages)
     print(f"sent {len(messages)} packed messages -> {MODEL}, cost ${seen[0].cost.amount}")
 
+    # Measured ending: the retrieved nodes really were packed to a budget, one chunk really did
+    # compress reversibly, and the call that carried them really was priced.
+    assert compressed, "nothing was compressed - the budget was never tight enough to bite"
+    assert restored in node_texts, "handle.expand() did not restore the chunk byte-for-byte"
+    assert seen[0].cost and seen[0].cost.amount > 0, "the packed call was not priced"
+
 
 if __name__ == "__main__":
     main()

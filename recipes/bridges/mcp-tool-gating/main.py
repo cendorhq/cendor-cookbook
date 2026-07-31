@@ -45,9 +45,17 @@ def run_shell(command: str) -> str:
 
 
 def main() -> None:
+    results = {}
     for command in ["ls -la", "rm -rf /"]:
         result = run_shell(command=command)
+        results[command] = result
         print(f"{command!r:14} -> {result}")
+
+    # Assert on the *body not running*, not just on the text: a gate that returned the block string
+    # AND still executed the tool would print exactly the same line for the safe command.
+    assert results["ls -la"] == "ran: ls -la", "the safe command did not reach the tool body"
+    assert results["rm -rf /"].startswith("[blocked by guardrail]"), "the dangerous command ran"
+    assert "ran:" not in results["rm -rf /"], "the tool body executed despite the block"
 
 
 if __name__ == "__main__":

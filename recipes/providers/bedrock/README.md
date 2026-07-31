@@ -10,6 +10,24 @@ never binds**: the cap is in your code and it is enforcing nothing.
 then the two caps that actually work on an unpriced id: a **token** cap needs no rate at all, and a
 **USD** cap needs exactly one `prices.register_model_price(...)` line.
 
+## The five steps (every recipe in `providers/` walks these, in this order)
+
+| # | Step | What it is here |
+|---|---|---|
+| 1 | **connect** | `boto3.client("bedrock-runtime")` — the `converse` shape |
+| 2 | **instrument** | one wrap — detection is structural, not name-based |
+| 3 | **govern** | a **token** cap (needs no rate) **and** a **USD** cap after registration, plus a `keyword_deny` gate |
+| 4 | **record** | `cassette` — the same call replayed offline: **0 provider calls, $0** |
+| 5 | **prove** | `acttrace` `verify()` over the hash chain, and a cost that came from `prices` |
+
+**Distinctive here: an unpriced model id, and camelCase usage.**
+
+⚠️ **Not every Bedrock id is unpriced.** The lookup strips the region prefix, the vendor
+prefix and `-v1:0`, so a **current** Bedrock Claude id prices itself with no registration
+(`eu.anthropic.claude-sonnet-4-6-v1:0`) while Nova / Llama / Mistral and **retired**
+Claude ids do not. The same cap in the same code binds on one model and is a silent
+no-op on the next.
+
 ## Run it
 
 ```bash
@@ -35,6 +53,7 @@ it for the `RECORD=1` path only.
 ## Expected output
 
 ```text
+gate     : BLOCKED by keyword_deny - provider saw 0 call(s), $0
 provider : bedrock   (detected from the boto-shaped .converse method)
 model    : eu.amazon.nova-2-lite-v1:0
 usage    : 1100 in + 320 out   (mapped from usage.inputTokens / usage.outputTokens)
@@ -43,6 +62,8 @@ cost     : $None   <- no price row for this id
 tokens=  budget exceeded: used 1420 tokens > cap 1000 tokens after 1 call(s); last model=eu.amazon.nova-2-lite-v1:0. on_exceed='block' refused nothing here: the pre-flight estimate fitted the cap and the call's settled usage did not, so the cumulative post-flight check raised. Reserve more output (output_reserve=/reasoning_reserve=) or add on_exceed='clamp' to cap the call server-side.
 usd=     pre-flight block: projected $0.0000622200 would exceed cap $0.00001 (model=eu.amazon.nova-2-lite-v1:0)
 priced   $0.0001428000   (same id, same call, now costed)
+cassette replayed 1 call, 0 provider call(s), $0
+verify() True - ok: 5 entries, head 6dc282adbcdf…
 ```
 
 Read the three enforcement lines as a set:
@@ -80,5 +101,4 @@ No key, secret, account id, region or model id of anyone's is committed here. `b
 default in the file is a public marketplace id, not an account-scoped resource. CI has no secrets — a
 recipe that needs credentials to go green is a bug in the recipe.
 
-Libraries: `core`, `tokenguard` · Offline ✓ ·
-[← all recipes](../../../README.md)
+Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

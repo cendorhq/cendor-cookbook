@@ -9,6 +9,23 @@ error-prone.
 subset) and tracks cache writes as their own billed category, so the estimate follows Anthropic's
 formula. The same call is written to a tamper-evident, signed audit trail and verified offline.
 
+## The five steps (every recipe in `providers/` walks these, in this order)
+
+| # | Step | What it is here |
+|---|---|---|
+| 1 | **connect** | `Anthropic()` — the `messages.create` shape |
+| 2 | **instrument** | one wrap — detection is structural, not name-based |
+| 3 | **govern** | a `budget(usd=…)` cap **and** a `keyword_deny` gate |
+| 4 | **record** | `cassette` — the same call replayed offline: **0 provider calls, $0** |
+| 5 | **prove** | `acttrace` `verify()` over the hash chain, and a cost that came from `prices` |
+
+**Distinctive here: three input rates on one call** — uncached input, cache **reads**
+and cache **writes**, each billed differently.
+
+⚠️ **Pre-flight token counting for Claude is approximate.** `o200k` under-counts Claude
+by a measured **1.49×** (English) / **1.14×** (code), so a projection is a projection.
+The usage printed below is *settled* — what Anthropic reported — and that one is exact.
+
 ## Run it
 
 ```bash
@@ -18,9 +35,12 @@ uv run python recipes/providers/anthropic/main.py
 ## Expected output
 
 ```text
-usage: 1,800 in (800 cache-read) + 300 cache-write -> 200 out
-cost : $0.00736500  (uncached input + cache-read + cache-write + output)
-audit: exported + verified (ok: 5 entries, head 7218e18bf8c2… (signatures verified; metadata signature verified))
+gate     : BLOCKED by keyword_deny - provider saw 0 call(s), $0
+usage    : 1,800 in (800 cache-read) + 300 cache-write -> 200 out
+cost     : $0.00736500  (uncached + cache-read + cache-write + output)
+refused  : pre-flight block: projected $0.00387300 would exceed cap $0.00001 (model=claude-sonnet-4-6)
+cassette : replayed 1 call, 0 provider call(s), $0
+verify() : True - ok: 9 entries, head f2a8647d1345… (signatures verified; metadata signature verified)
 ```
 
 *(The head hash varies per run.)* Cache reads and writes are both priced and visible; the cost is
@@ -31,4 +51,4 @@ the sum of uncached input + cache-read + cache-write + output — Anthropic's ca
 base dependency of this repo, so `--group apps` (or `uv run --with anthropic`) is required. **No
 fixture is committed**; CI runs the fake-client path above.
 
-Libraries: `core`, `tokenguard`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)
+Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

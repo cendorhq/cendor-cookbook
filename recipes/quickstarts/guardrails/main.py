@@ -69,6 +69,15 @@ def main() -> None:
         ok, _ = verify(path)
         print(f"\nchain verifies: {ok}  (the blocked prompt spent $0.00 - the model never saw it)")
 
+    # Measured ending. `sent` is the string the PROVIDER received, read out of the fake's own
+    # record — so this asserts redaction happened before the wire, not that a redacted copy exists
+    # somewhere else. (A probe that reads the caller's kwargs instead sees the raw key and reports
+    # a working redaction as a leak; that mistake cost a whole review round on 2026-07-31.)
+    assert len(calls) == 1, f"the blocked prompt should never have been sent; {len(calls)} calls"
+    assert "sk-ABCD1234EFGH5678" not in sent, "the provider received the raw key"
+    assert "[redacted]" in sent, f"nothing was redacted in {sent!r}"
+    assert ok is True, "the guardrail decision chain failed verify()"
+
 
 if __name__ == "__main__":
     main()

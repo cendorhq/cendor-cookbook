@@ -11,6 +11,21 @@ accounting path for one provider.
 `report()` row and the tamper-evident audit chain are the same three lines you would write for
 OpenAI — and the pre-flight refusal reads in dollars, not in Gemini's vocabulary.
 
+## The five steps (every recipe in `providers/` walks these, in this order)
+
+| # | Step | What it is here |
+|---|---|---|
+| 1 | **connect** | `genai.Client()` — the `models.generate_content` shape |
+| 2 | **instrument** | one wrap — detection is structural, not name-based |
+| 3 | **govern** | a `budget(usd=…)` cap + `track()` **and** a `keyword_deny` gate |
+| 4 | **record** | `cassette` — the same call replayed offline: **0 provider calls, $0** |
+| 5 | **prove** | `acttrace` `verify()` over the hash chain, and a cost that came from `prices` |
+
+**Distinctive here: a usage shape that shares nothing with OpenAI, and a cumulative
+stream.** There is no `usage`; there is `usage_metadata`. And `generate_content_stream`
+reports usage **cumulatively** — each chunk carries the running total, so summing across
+chunks triple-counts a three-chunk answer.
+
 ## Run it
 
 ```bash
@@ -28,13 +43,16 @@ google-genai` supplies it for the `RECORD=1` path only.
 ## Expected output
 
 ```text
+gate     : BLOCKED by keyword_deny - provider saw 0 call(s), $0
 provider : google   (inferred from the client's shape, not configured)
 model    : gemini-2.5-flash
 usage    : 980 in + 210 out   (mapped from usage_metadata.prompt_token_count / .candidates_token_count)
 cost     : $0.000819000
 spend    : {'feature': 'triage'} 1 call(s) -> $0.000819000
 refused  : pre-flight block: projected $0.000643300 would exceed cap $0.00001 (model=gemini-2.5-flash)
-audit    : verify=True — ok: 7 entries, head 3b729c5f890c… (signatures verified; metadata signature verified)
+stream   : 3 chunks -> 210 out   (cumulative usage: the LAST chunk is the total, summing triple-counts)
+cassette : replayed 1 call, 0 provider call(s), $0
+audit    : verify=True - ok: 14 entries, head fa984896dac2… (signatures verified; metadata signature verified)
 ```
 
 *(The head hash varies per run.)* `provider : google` is **inferred from the client's shape** — you
@@ -82,4 +100,4 @@ No key appears anywhere in this repo. `genai.Client()` reads **your** `GOOGLE_AP
 `GEMINI_API_KEY` from the environment, and CI has no secrets — a recipe that needs a key to go green
 is a bug in the recipe.
 
-Libraries: `core`, `tokenguard`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)
+Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

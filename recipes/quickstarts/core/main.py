@@ -38,10 +38,20 @@ def print_event(call) -> None:
 
 
 def main() -> None:
+    seen: list = []
     bus.subscribe(print_event)  # any tool would subscribe the same way
+    bus.subscribe(seen.append)
     client = instrument(fake_openai())  # the one and only wrap
 
     client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": "hello"}])
+
+    # The claim is "one wrap and every tool downstream sees a normalized, priced event". Assert it,
+    # because a seam that silently emitted nothing would print nothing and still exit 0.
+    assert seen, "no event reached the bus — instrument() captured nothing"
+    call = seen[-1]
+    assert call.provider == "openai", f"provider was inferred as {call.provider!r}, not 'openai'"
+    assert call.usage.input_tokens and call.usage.output_tokens, "usage was not normalized"
+    assert call.cost and call.cost.amount > 0, "the call reached the bus unpriced"
 
 
 if __name__ == "__main__":

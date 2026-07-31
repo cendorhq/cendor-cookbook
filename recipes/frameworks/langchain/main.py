@@ -96,6 +96,12 @@ def main() -> None:
     )
     print(f"acttrace entries : {len(audit.entries)} (chain wrote spend + audit, code unchanged)")
 
+    # The claim this recipe makes is "the LangChain code is unchanged and cendor still sees the
+    # call". These three lines are that claim, measured, so it cannot quietly stop being true.
+    assert seen, "no LLMCall reached the bus - the LangChain call was not captured"
+    assert report().total().amount > 0, "the captured call was not priced"
+    assert len(audit.entries) >= 2, "the chain recorded no decision for the LangChain turn"
+
 
 if __name__ == "__main__":
     main()

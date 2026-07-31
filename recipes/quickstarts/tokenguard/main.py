@@ -65,6 +65,12 @@ def main() -> None:
     print(f"  {'TOTAL':<11} {sum(row['calls'] for row in r)} calls   ${r.total().amount}")
     print("\n(The 6th turn was blocked pre-flight - $0 spent on it; the model never saw it.)")
 
+    # Prove it rather than print it. `ran` is what tokenguard recorded, so if the pre-flight block
+    # ever stopped working this line fails instead of the paragraph above quietly becoming false.
+    ran = sum(row["calls"] for row in r)
+    assert ran == 5, f"the $0.50 cap should let 5 turns through and block the 6th, got {ran}"
+    assert r.total().amount > 0, "no spend was recorded at all"
+
 
 if __name__ == "__main__":
     main()

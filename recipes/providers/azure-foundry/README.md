@@ -14,6 +14,19 @@ raised (costed and allowed). You do not have to go and find a rate card — you 
 deployment serves, which you already know. Plus the Azure-specific traps that turn a working sample
 into a 400.
 
+## The five steps (every recipe in `providers/` walks these, in this order)
+
+| # | Step | What it is here |
+|---|---|---|
+| 1 | **connect** | the standard `openai` SDK at `<endpoint>/openai/v1/` — **no** `AzureOpenAI`, **no** `api-version` |
+| 2 | **instrument** | one wrap — detection is structural, not name-based |
+| 3 | **govern** | a USD `budget(...)` that cannot bind until the deployment is priced, plus a `keyword_deny` gate |
+| 4 | **record** | `cassette` — the same call replayed offline: **0 provider calls, $0** |
+| 5 | **prove** | `acttrace` `verify()` over the hash chain, and a cost that came from `prices` |
+
+**Distinctive here: money, and only money.** Capture works out of the box; the cost is
+`None` because you called a *deployment name*, not a model id.
+
 ## Run it
 
 ```bash
@@ -94,6 +107,8 @@ made; the plain v1 path above needs only your resource key.
 ## Expected output
 
 ```text
+gate                  BLOCKED by keyword_deny - provider saw 0 call(s), $0
+
 unpriced (as shipped)  provider=openai model=my-chat-deployment 1200 in / 400 out -> None (estimated)
   warning: UnpricedModelWarning: tokenguard: no price for model 'my-chat-deployment', so the active USD budget (on_exceed='block') counts its calls as $0 and cannot enforce a USD cap on it.
   -> the $0.00001 USD cap did NOT bind: an unpriced call projects $0.
@@ -104,6 +119,9 @@ registered            my-chat-deployment like gpt-4o -> cached, input, output ra
 priced (registered)   BudgetExceeded: pre-flight block: projected $0.000672500 would exceed cap $0.00001 (model=my-chat-deployment)
 priced, cap raised     provider=openai model=my-chat-deployment 1200 in / 400 out -> $0.007000000 (estimated)
   -> same deployment, same call: now costed, and the USD cap enforces pre-flight.
+
+cassette              replayed 1 call, 0 provider call(s), $0
+verify()              True - ok: 5 entries, head 389a83f0dcff…
 ```
 
 Read the first line carefully: `provider=openai` (detection worked), exact token counts (capture
@@ -171,5 +189,4 @@ from **your** environment; the documented placeholders are `https://<your-resour
 and `<your-deployment-name>`. CI has no secrets and never will — a recipe that needs a key to go
 green is a bug in the recipe.
 
-Libraries: `core`, `tokenguard` · Offline ✓ ·
-[← all recipes](../../../README.md)
+Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

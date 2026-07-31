@@ -200,6 +200,32 @@ write regardless, and the RECORD recipes ship **unrecorded** — CI runs their f
 
 Costs shown anywhere come from `prices.estimate` on the stated token counts — no invented numbers.
 
+## Pins
+
+**There is exactly one shelf for the whole repo, and it lives in
+[`pyproject.toml`](pyproject.toml).** Every recipe here installs the *published* PyPI packages
+through that single manifest — no per-recipe pin file, so there is nothing to drift out of sync
+with anything else. (The TypeScript twin is the other way round: `cendor-cookbook-js` gives every
+recipe its own `package.json` and therefore its own `## Pins` section, because a copy-pasteable
+`package.json` is the thing it needs to prove resolves.)
+
+| Range | Why that floor |
+|---|---|
+| `cendor-core>=1.17.0,<2.0` | Anthropic `messages.stream()`/`parse()` are captured (they emitted nothing before), and a `Reroute` no longer ends the interceptor chain — several `combos/` recipes install a budget *and* a guard on the same call, and before 1.17.0 exactly one of them took effect, silently, depending on registration order |
+| `cendor-libs>=1.0,<2.0` · `cendor-sdk>=1.0,<2.0` | the umbrella + the SDK recipes |
+| `cendor-guardrails>=1.4,<2.0` | `rules.intent` / `custom_category` |
+| `cendor-acttrace>=1.4,<2.0` | decision `metadata` (`policy_hash` / `policy_version`) reaches the chain |
+| `cendor-tokenguard>=1.6.3,<2.0` | an explicit floor so a fresh resolve cannot land on the 1.6.1 post-flight message the `bedrock` recipe teaches against |
+
+⚠️ **`uv.lock` is deliberately NOT committed** — see the reason in [`.gitignore`](.gitignore). CI runs
+a bare `uv sync` with no `--frozen`/`--locked`, so every run re-resolves against the current shipped
+packages and the weekly cron is what catches dependency drift. Recipes pin **ranges**, not a frozen
+lock. To check your own working copy against what is actually published:
+
+```bash
+uv run python scripts/check_shelf.py    # exits 1 and names the package if anything is behind
+```
+
 ## Contributing
 
 New recipes are welcome — the one hard rule is **it runs green offline, with no key**. See

@@ -143,8 +143,19 @@ def main() -> None:
     print(f"provider     : underlying stream closed = {really_closed}   [{evidence}]")
     first_line = reason.splitlines()[0] if reason else "(the cap was never crossed)"
     print(f"raised       : {raised}x BudgetExceeded - {first_line}")
-    cap = broken[-1].payload["cap_tokens"]
-    print(f"chained      : budget_event(action='broken'), cap {cap} tokens")
+    # Same class as `reason` above, and the same measurement caught it: `broken` is EMPTY whenever
+    # the breaker did not fire, and this line used to read `broken[-1]` unconditionally. Against a
+    # client whose answer is short enough not to trip the cap the recipe died with `IndexError`
+    # here — three lines before the assertion that exists to explain exactly that situation.
+    # (Measured 2026-08-01 with the fake's transport made real: 12 chunks, no cut, IndexError.)
+    if broken:
+        cap = broken[-1].payload["cap_tokens"]
+        print(f"chained      : budget_event(action='broken'), cap {cap} tokens")
+    else:
+        print(
+            "chained      : no budget_event(action='broken') - the breaker never fired, so there "
+            "was no cut to chain"
+        )
     print(f"verify()     : {ok} - {detail}")
 
     assert raised == 1, "exactly one BudgetExceeded should surface on the cut"

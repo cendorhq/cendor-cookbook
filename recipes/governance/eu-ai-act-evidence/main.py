@@ -33,6 +33,12 @@ class PolicyViolation(Exception):
 
 
 def fake_openai():
+    """A stand-in for `OpenAI()` — the same `chat.completions.create` shape, no network.
+
+    It always approves, deliberately: the evidence pack has to be able to record a decision the
+    model made *and* a decision the policy refused, and only one of those needs a model at all.
+    """
+
     class Completions:
         def create(self, **kwargs):
             msg = SimpleNamespace(content="Approved: within policy.")
@@ -45,6 +51,12 @@ def fake_openai():
 
 
 def _has_refusal(path: str) -> bool:
+    """Is the REFUSAL inside the exported pack?
+
+    This is the check auditors care about and the one most implementations get wrong: a system that
+    logs only what it did produces an evidence trail in which a blocked request is indistinguishable
+    from a request nobody ever made. The refusal has to be a first-class record.
+    """
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         rec = json.loads(line)
         if rec.get("type") == "policy_flag" and rec.get("payload", {}).get("action") == "blocked":
@@ -59,6 +71,9 @@ def build_and_verify(workdir: str, verbose: bool = False) -> dict:
     client = instrument(fake_openai())
     blocked = False
 
+    # A guard on the `instrument()` seam runs BEFORE the request leaves — so a refusal costs $0 and
+    # the model provably never saw the SSN. A check inside the handler would be too late twice over:
+    # the data has already been sent, and the log would say "we sent it, then complained".
     def guard(call):  # pre-flight guard on the instrument() seam
         content = " ".join(str(m.get("content", "")) for m in getattr(call, "messages", []))
         if isinstance(call, LLMCall) and _SSN.search(content):
@@ -66,6 +81,8 @@ def build_and_verify(workdir: str, verbose: bool = False) -> dict:
             raise PolicyViolation("blocked: SSN in prompt")
         return MISS
 
+    # `add_interceptor` is process-global, which is why the `finally` below is not optional: leave
+    # it installed and every later call in the same process is silently gated by this recipe.
     add_interceptor(guard)
     try:
         with audit.decision(input="loan application (raw, may contain PII)", actor="agent"):
@@ -96,7 +113,9 @@ def build_and_verify(workdir: str, verbose: bool = False) -> dict:
         print("$ acttrace verify evidence.jsonl --key ***")
     exit_ok = acttrace_cli(["verify", evidence, "--key", SIGNING_KEY])  # 0 = pass
 
-    data = Path(evidence).read_bytes()  # flip ONE byte inside a hashed payload
+    # The tamper demo. One byte, inside a payload that is hashed into the chain — not a deleted
+    # line, not a reordered file. A chain that only caught coarse edits would not be worth much.
+    data = Path(evidence).read_bytes()
     i = data.index(b"approved")
     Path(evidence).write_bytes(data[:i] + b"A" + data[i + 1 :])
     if verbose:
@@ -116,7 +135,14 @@ def build_and_verify(workdir: str, verbose: bool = False) -> dict:
 
 def main() -> None:
     with tempfile.TemporaryDirectory() as d:
-        build_and_verify(d, verbose=True)
+        r = build_and_verify(d, verbose=True)
+
+    # Measured ending. `tampered_exit` is the important one: a chain that verified BOTH files would
+    # print an identical happy path and be worthless as evidence.
+    assert r["blocked"] is True, "the SSN-bearing prompt reached the model"
+    assert r["refusal_in_pack"] is True, "the refusal is not in the exported evidence pack"
+    assert r["verify_exit"] == 0, "the clean evidence pack failed verification"
+    assert r["tampered_exit"] != 0, "a one-byte edit still verified — the chain proves nothing"
 
 
 if __name__ == "__main__":
