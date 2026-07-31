@@ -35,7 +35,7 @@ dev = [
   "pytest>=8,<10",
   "pytest-xdist>=3,<4",
   "pytest-asyncio>=0.24,<1.5",
-  "ruff==0.15.20",
+  "ruff==0.16.0",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
 # isolation. Each carries an upper bound at the next breaking release, so one framework's
@@ -95,6 +95,15 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# ⚠️ Markdown is excluded DELIBERATELY, not to dodge a failure. Ruff 0.16 added `*.md` to its default
+# `include`, so `ruff format` began reformatting the Python blocks inside every recipe README. Those
+# blocks are prose typography, hand-set for reading, and three of the four rewrites it wanted made the
+# teaching worse: it wrapped the `agent = Agent(...)` one-liner in `sdk/governed-agent` across three
+# lines (the block whose entire point is "a governed agent in ~10 lines"), added an indentation level
+# inside `otel.ingest({...})` in `observability/batch-ingest`, and collapsed a deliberately aligned
+# inline comment. Ruff's job in this repo is the 95 Python files; the READMEs are edited by hand.
+# This does NOT weaken anything: ruff never checked markdown before 0.16, so nothing is lost.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
