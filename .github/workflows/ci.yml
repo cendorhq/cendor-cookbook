@@ -267,40 +267,52 @@ jobs:
       - name: offline plumbing tests
         run: uv run --python ${{ matrix.python }} --group apps pytest recipes/apps/chat-playground
 
-  js-recipes:
-    # The TypeScript recipes (core-js, governed-agent-js, m365-custom-engine-js). Each installs the
-    # published @cendor/* packages and runs offline against a fake client — no key, no network.
-    # NOTE: a caret pin resolves only within its major, so a stale pin here rots SILENTLY GREEN —
-    # after any @cendor/core or @cendor/sdk minor, bump the pins in all three recipes' package.json
-    # (the whole @cendor/* set together, never core alone — see GATE G1 at the end of this job).
-    # Node 20 and 22 are in the matrix on purpose: the M365 recipe's turn scope uses
-    # AsyncLocalStorage, and `run()` vs `enterWith` behaves differently on legacy-ALS Node — a test
-    # green only on Node 24 proves nothing about the LTS.
+  # NOTE — the TypeScript recipes moved out on 2026-07-31. They live in
+  # https://github.com/cendorhq/cendor-cookbook-js with their own CI (same node 20 + 22 matrix,
+  # per-recipe npm install, one-core gate). This repo is Python-only, and there is deliberately no
+  # `js-recipes` job left here: one toolchain per repo is the whole point of the split.
+
+  combos:
+    # The cross-library COOPERATION recipes (recipes/combos/). Each wires two or three libraries
+    # together through core's bus/interceptor/protocol seams and ends in a real assertion — a
+    # verify() that returns True, a byte-identical restore, an identical replay — never a printed
+    # claim. Base install; offline and keyless like everything else here.
     strategy:
       fail-fast: false
       matrix:
-        node: ["20", "22"]
+        python: ["3.11", "3.13"]
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ matrix.node }}
-      - name: run every TypeScript recipe offline
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run every combo recipe offline
         run: |
-          for dir in recipes/quickstarts/core-js recipes/sdk/governed-agent-js \
-                     recipes/agents/m365-custom-engine-js; do
-            echo "::group::$dir"
-            (cd "$dir" && npm install && node index.mjs)
-            echo "::endgroup::"
+          for f in recipes/combos/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
           done
-      # GATE G1 — exactly one @cendor/core per recipe. A stale pin here used to rot silently green
-      # (the recipe still runs; it just runs on an old shelf). Two cores = two event buses = a
-      # guardrail decision that never reaches the SDK, with nothing failing to say so.
-      - name: G1 — one @cendor/core per recipe
+
+  libs:
+    # Per-library DEPTH recipes (recipes/libs/). Same loop shape as every other category job — a new
+    # recipe is covered the moment it lands, which is the property that stops a README promising
+    # "runs green offline" for something CI never executed.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uv sync --python ${{ matrix.python }}
+      - name: run every per-library depth recipe offline
         run: |
-          node scripts/check-one-core.mjs recipes/quickstarts/core-js \
-            recipes/sdk/governed-agent-js recipes/agents/m365-custom-engine-js
+          for f in recipes/libs/*/main.py; do
+            echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
+          done

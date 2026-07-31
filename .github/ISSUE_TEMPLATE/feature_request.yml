@@ -69,6 +69,6 @@ body:
       label: Fit with the recipe standard
       options:
         - label: It can run **offline** — no API key, no provider network call — with a fake provider-shaped client or a committed cassette fixture.
-        - label: No invented numbers. Any cost printed comes from `prices.estimate(...)` on stated token counts, and money is `Decimal` (`decimal.js` in TypeScript), never a float.
+        - label: No invented numbers. Any cost printed comes from `prices.estimate(...)` on stated token counts, and money is `Decimal`, never a float.
         - label: It composes libraries only through the documented seams (`instrument()`, the `cendor.core` bus, protocols) — never `import cendor.<toolA>` from inside `cendor.<toolB>` glue.
         - label: It describes a framework as *working alongside* Cendor — never an "official integration".

@@ -4,6 +4,11 @@ Thanks for adding to the Cendor Cookbook. Every recipe here earns its place by p
 something real — and by **running green offline, with no API key**. That last rule is the bar
 every PR must clear.
 
+**This is the Python cookbook.** A TypeScript recipe belongs in
+[`cendorhq/cendor-cookbook-js`](https://github.com/cendorhq/cendor-cookbook-js) — the two are twins,
+not forks: a recipe folder name means the same thing in both trees, and renaming one means renaming
+both.
+
 ## The one hard rule: it runs offline
 
 CI has **no secrets, ever**. A recipe must produce its money shot with:
@@ -108,8 +113,10 @@ into a fixture, a cassette that isn't safe to load? **Don't open a public issue.
 
 ## Site contract
 
-Folder names under `recipes/` are an API — the cendor.ai `/cookbook` page deep-links to them.
-**Don't rename an existing recipe folder** without updating the site.
+Folder names under `recipes/` are an API — the cendor.ai `/cookbook` page deep-links to them and the
+Cendor MCP docs server indexes them. **Don't rename an existing recipe folder** without updating the
+site, and don't rename one that also exists in the
+[TypeScript cookbook](https://github.com/cendorhq/cendor-cookbook-js) without renaming both.
 
 ---
 Licensed under Apache-2.0. By contributing you agree your contribution is licensed under the

@@ -253,7 +253,9 @@ if you want it; it is just not what this recipe is about.)
 `cendor-core >= 1.14.1` is load-bearing, not cosmetic: it is where a replayed **async** call became
 awaitable again, which is what makes the offline replay above work with no app-side shim.
 
-The TypeScript twin is [`../m365-custom-engine-js`](../m365-custom-engine-js/). Full docs: [cendor.ai/docs/providers → Microsoft 365 Agents
+The TypeScript twin lives in the TypeScript cookbook:
+[`agents/m365-custom-engine-js`](https://github.com/cendorhq/cendor-cookbook-js/tree/main/recipes/agents/m365-custom-engine-js)
+— same agent, same governance, a different host runtime. Full docs: [cendor.ai/docs/providers → Microsoft 365 Agents
 SDK](https://cendor.ai/docs/providers#microsoft-365-agents-sdk-custom-engine-agent) — this is a **libraries**
 integration, not a `cendor-sdk` one.
 

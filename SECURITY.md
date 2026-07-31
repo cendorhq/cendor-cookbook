@@ -28,9 +28,11 @@ Please include, where you can:
 
 ## Scope
 
-**This repository ships no package.** It is a set of copy-paste recipes (`[tool.uv] package = false`,
-nothing published to PyPI or npm) that install the *released* `cendor-*` / `@cendor/*` libraries and
-run them offline against fake provider-shaped clients. So the two halves of the threat model are:
+**This repository ships no package.** It is a set of copy-paste **Python** recipes (`[tool.uv]
+package = false`, nothing published to PyPI) that install the *released* `cendor-*` libraries and run
+them offline against fake provider-shaped clients. (The TypeScript recipes live in
+[`cendor-cookbook-js`](https://github.com/cendorhq/cendor-cookbook-js), which has its own policy.)
+So the two halves of the threat model are:
 
 **In scope here** — anything wrong with the recipes themselves, because people copy them:
 
@@ -70,7 +72,7 @@ nothing here is legal advice.
 ## Supported versions
 
 **The cookbook itself is not versioned for consumers** — there are no releases to back-port to. Fixes
-land on `main`, and every recipe pins a *range* (`cendor-libs>=1.0,<2.0`, `@cendor/*` carets) that
+land on `main`, and every recipe pins a *range* (`cendor-libs>=1.0,<2.0`) that
 re-resolves on each CI run, so a security fix in a library reaches the recipes as soon as it is
 published.
 

@@ -44,17 +44,10 @@ body:
         - agents
         - observability
         - testing
+        - combos
+        - libs
         - sdk
         - apps (chat-playground)
-  - type: dropdown
-    id: language
-    attributes:
-      label: Language
-      options:
-        - Python (uv)
-        - TypeScript (npm — core-js, governed-agent-js, m365-custom-engine-js)
-    validations:
-      required: true
   - type: dropdown
     id: group
     attributes:
@@ -72,7 +65,6 @@ body:
         - agents-m365
         - apps
         - dev
-        - "N/A — TypeScript recipe (`npm install`)"
     validations:
       required: true
   - type: input
@@ -85,8 +77,8 @@ body:
   - type: input
     id: runtime
     attributes:
-      label: Python or Node version, and OS
-      description: The Python jobs run 3.11 and 3.13; the TypeScript ones run Node 20 and 22.
+      label: Python version, and OS
+      description: The CI jobs run Python 3.11 and 3.13.
       placeholder: Python 3.13.2, uv 0.9.4, Windows 11
     validations:
       required: true
@@ -94,7 +86,7 @@ body:
     id: resolved
     attributes:
       label: Which cendor versions resolved?
-      description: Recipes pin *ranges* that re-resolve on every run, so a fresh library release can change behavior. `uv pip list | grep cendor`, or `npm ls @cendor/core` in the recipe folder.
+      description: Recipes pin *ranges* that re-resolve on every run, so a fresh library release can change behavior. `uv pip list | grep cendor`.
       placeholder: cendor-core 1.14.1, cendor-guardrails 1.4.0, cendor-sdk 1.19.0
   - type: textarea
     id: what-happened

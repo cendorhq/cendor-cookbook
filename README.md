@@ -22,11 +22,15 @@ Copy-paste recipes proving [**Cendor**](https://github.com/cendorhq/cendor-libs)
 for LLM apps (cost, context, testing, governance) — works with the frameworks and providers you
 already use. **Every recipe runs offline, with no API key.**
 
-Most recipes install the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drive it against a fake
+Every recipe installs the shipped PyPI package (`cendor-libs>=1.0,<2.0`) and drives it against a fake
 provider-shaped client, exactly the way Cendor's own test suite does — so there's nothing to sign
-up for and nothing to spend. Three recipes are the TypeScript twins (`core-js`, `governed-agent-js`,
-`m365-custom-engine-js`); they install the published `@cendor/*` npm packages and run the same way
-with `node`.
+up for and nothing to spend.
+
+> **This is the Python cookbook.** The TypeScript recipes live in
+> [**cendorhq/cendor-cookbook-js**](https://github.com/cendorhq/cendor-cookbook-js) — twins, not
+> forks: a recipe folder name means the same thing in both trees. They are separate repos so each
+> has one unambiguous toolchain; a single repo carrying a root `pyproject.toml` *and* scattered
+> `package.json` files gives a devcontainer nothing definite to provision.
 
 **Running a recipe live?** Swap the fake client for a real one — or, in the SDK recipes, drop the
 explicit `client` and set your provider's standard env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
@@ -73,7 +77,6 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 |---|---|---|---|---|
 | [**chat-playground**](recipes/apps/chat-playground/) | **app** | Every library live in one chat UI — the plumbing made visible per turn | `core` `tokenguard` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
 | [**m365-custom-engine-py**](recipes/agents/m365-custom-engine-py/) | **agent** | Govern a Microsoft 365 Agents SDK **custom engine agent**: session cap in `TurnState`, gates on the Activity, evidence per turn, and the whole agent replayed offline for `$0` CI | `core` `tokenguard` `guardrails` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
-| [**m365-custom-engine-js**](recipes/agents/m365-custom-engine-js/) | **agent** · TS | The same agent on `@microsoft/agents-hosting` — plus a negative control for the `afterTurn` trap that silently stops the cap from ever binding | `@cendor/core` + the six libraries | ✓ |
 | [tokenguard](recipes/quickstarts/tokenguard/) | quickstart | Block a runaway loop *before* it overspends (pre-flight cap) | `core` `tokenguard` | ✓ |
 | [contextkit](recipes/quickstarts/contextkit/) | quickstart | Fit a prompt to budget with a kept/shrunk/dropped receipt | `core` `contextkit` | ✓ |
 | [squeeze](recipes/quickstarts/squeeze/) | quickstart | Compress a huge blob to a token target, restore byte-for-byte | `core` `squeeze` | ✓ |
@@ -81,7 +84,22 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [acttrace](recipes/quickstarts/acttrace/) | quickstart | Signed hash-chain; one edited byte breaks `verify` | `core` `acttrace` | ✓ |
 | [guardrails](recipes/quickstarts/guardrails/) | quickstart | Block / redact a call before it's sent; every decision in the audit chain | `core` `guardrails` `acttrace` | ✓ |
 | [core](recipes/quickstarts/core/) | quickstart | One `instrument()` wrap → every call on a normalized bus | `core` | ✓ |
-| [core-js](recipes/quickstarts/core-js/) | quickstart · TS | The `core` quickstart in TypeScript — `@cendor/core` on npm, decimal-safe cost | `@cendor/core` | ✓ |
+| [context-under-budget](recipes/combos/context-under-budget/) | **combo** | The clamp binds on the *assembled* prompt: contextkit's receipt **is** the billed input, measured | `core` `contextkit` `squeeze` `tokenguard` | ✓ |
+| [compress-and-restore](recipes/combos/compress-and-restore/) | **combo** | A reversible eviction, chained as a metadata-only `compression` audit entry that holds no text | `core` `contextkit` `squeeze` `acttrace` | ✓ |
+| [record-a-governed-run](recipes/combos/record-a-governed-run/) | **combo** | Record the governed triad once, replay it at `$0` — proven by a client that raises if reached | `core` `cassette` `tokenguard` `acttrace` | ✓ |
+| [break-midstream-audited](recipes/combos/break-midstream-audited/) | **combo** | `on_exceed="break"` cuts a runaway stream and closes the socket; the cut is chained + verifies | `core` `tokenguard` `acttrace` | ✓ |
+| [block-before-record](recipes/combos/block-before-record/) | **combo** | A guardrail block pre-empts the recorder — 2 requests in, 1 call and 1 cassette entry out | `core` `guardrails` `cassette` | ✓ |
+| [deterministic-assembly](recipes/combos/deterministic-assembly/) | **combo** | Byte-identical assembly across runs is what makes a replay mean anything (with a hash control) | `core` `contextkit` `cassette` | ✓ |
+| [tokenguard-hard-vs-runaway](recipes/libs/tokenguard-hard-vs-runaway/) | library | `clamp` (provider-enforced) vs `break` (mid-flight) — including `break` on a non-stream | `core` `tokenguard` | ✓ |
+| [tokenguard-durable-spend](recipes/libs/tokenguard-durable-spend/) | library | `QueueSink` off the hot path + the `BudgetEvent` stream, the only trace a blocked call leaves | `core` `tokenguard` | ✓ |
+| [contextkit-eviction-receipt](recipes/libs/contextkit-eviction-receipt/) | library | priority / pin / evict / keep, and the `AssemblyReport` receipt; `whatif()` prices a tighter budget | `core` `contextkit` | ✓ |
+| [contextkit-plug-a-compressor](recipes/libs/contextkit-plug-a-compressor/) | library | `use_compressor()` with a domain backend — no base class, no call-site change | `core` `contextkit` `squeeze` | ✓ |
+| [squeeze-four-compressors](recipes/libs/squeeze-four-compressors/) | library | json / logs / code / prose × fidelity, with ratios measured on the recipe's own inputs | `core` `squeeze` | ✓ |
+| [squeeze-persist-and-restore](recipes/libs/squeeze-persist-and-restore/) | library | `SQLiteStore` + `decompress()` across a **real** process restart, with the MemoryStore failure shown | `core` `squeeze` | ✓ |
+| [cassette-four-modes](recipes/libs/cassette-four-modes/) | library | record / replay / rerecord / auto — and why `auto` is wrong for CI | `core` `cassette` | ✓ |
+| [cassette-semantic-drift](recipes/libs/cassette-semantic-drift/) | library | Measured: a surface scorer keeps the paraphrase and drops the real change — why `scorer=` exists | `core` `cassette` | ✓ |
+| [acttrace-custom-detector](recipes/libs/acttrace-custom-detector/) | library | `register_detector()` with a validator + `enable_locale_pack()`; 1 of 5 found before, 5 after | `core` `acttrace` | ✓ |
+| [core-seams](recipes/libs/core-seams/) | library | `trace()`, `add_stream_observer()` (an enforcement seam) and `tokens.register()` | `core` | ✓ |
 | [openai-chat](recipes/providers/openai-chat/) | provider · RECORD | Pre-flight budget + attribution on Chat Completions | `core` `tokenguard` | ✓ |
 | [openai-responses](recipes/providers/openai-responses/) | provider · RECORD | Capture reasoning + cached tokens on the Responses API | `core` `tokenguard` | ✓ |
 | [anthropic](recipes/providers/anthropic/) | provider · RECORD | Price prompt-cache reads/writes correctly, audited | `core` `tokenguard` `acttrace` | ✓ |
@@ -106,7 +124,6 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [intent-gate](recipes/governance/intent-gate/) | governance | `rules.intent` — a pre-LLM intent gate (off-topic `allow` / deny) before you spend a token; offline keyword classifier, no model | `core` `guardrails` | ✓ |
 | [custom-category](recipes/governance/custom-category/) | governance | `rules.custom_category` catches a paraphrase a keyword denylist misses (semantic by-example); composes with `keyword_deny` | `core` `guardrails` | ✓ |
 | [governed-agent](recipes/sdk/governed-agent/) | **sdk** | A governed agent in ~10 lines — budget + audit + a real tool loop | `cendor-sdk` | ✓ |
-| [governed-agent-js](recipes/sdk/governed-agent-js/) | **sdk** · TS | The governed-agent recipe in TypeScript — `@cendor/sdk` on npm | `@cendor/sdk` | ✓ |
 | [openai-agents-guardrail](recipes/bridges/openai-agents-guardrail/) | bridge | A cendor Guardrail as an OpenAI Agents SDK `@input_guardrail` | `guardrails` + `openai-agents` | ✓ |
 | [claude-agent-pretooluse](recipes/bridges/claude-agent-pretooluse/) | bridge | A cendor Guardrail as a Claude Agent SDK `PreToolUse` hook (deny a tool call) | `guardrails` + `claude-agent-sdk` | ✓ |
 | [mcp-tool-gating](recipes/bridges/mcp-tool-gating/) | bridge | Gate a `FastMCP` server's tools with a cendor Guardrail at the tool boundary | `guardrails` + `mcp` | ✓ |
@@ -118,18 +135,16 @@ maintainer runs once with a real key to capture a replayable cassette (secrets r
 
 ## Run any recipe
 
-Most recipes are a folder with a `main.py` you can run directly; the TypeScript twins
-(`core-js`, `governed-agent-js`, `m365-custom-engine-js`) are a folder with an `index.mjs` run with
-`node`. Quickstart, provider, SDK, and governance recipes run on the base install; framework,
-bridge, and agent-host recipes each need their own dependency group so a breaking release in one
-can't turn the others red:
+Every recipe is a folder with a `main.py` you can run directly. Quickstart, provider, SDK, combo,
+per-library, and governance recipes run on the base install; framework, bridge, and agent-host
+recipes each need their own dependency group so a breaking release in one can't turn the others red:
 
 | Category | Command |
 |---|---|
 | quickstart / provider | `uv run python recipes/<category>/<name>/main.py` |
-| quickstart · TypeScript | `cd recipes/quickstarts/core-js && npm install && node index.mjs` |
 | **sdk** | `uv run python recipes/sdk/<name>/main.py` |
-| **sdk** · TypeScript | `cd recipes/sdk/governed-agent-js && npm install && node index.mjs` |
+| **combos** | `uv run python recipes/combos/<name>/main.py` |
+| **libs** | `uv run python recipes/libs/<name>/main.py` |
 | governance | `uv run python recipes/governance/<name>/main.py` |
 | testing | `uv run pytest recipes/testing` |
 | frameworks · langchain | `uv run --group frameworks-langchain python recipes/frameworks/langchain/main.py` |
@@ -143,7 +158,6 @@ can't turn the others red:
 | observability · otel-export | `uv run --group observability-otel python recipes/observability/otel-export/main.py` |
 | observability · batch-ingest | `uv run --group observability-otel python recipes/observability/batch-ingest/main.py` |
 | **agents** · m365-custom-engine-py | `uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/main.py` |
-| **agents** · m365-custom-engine-js | `cd recipes/agents/m365-custom-engine-js && npm install && node index.mjs` |
 | apps · chat-playground | `uv run --group apps python recipes/apps/chat-playground/app.py` |
 
 Any recipe that ships a test file is also runnable via `uv run pytest recipes/<category>/<name>`.
@@ -196,6 +210,8 @@ issue for a security problem; report it privately through the Security tab.
 
 ## Links
 
+- **TypeScript cookbook:** [github.com/cendorhq/cendor-cookbook-js](https://github.com/cendorhq/cendor-cookbook-js)
+  — the same recipes in TypeScript, same folder names, one repo per toolchain.
 - **Library:** [github.com/cendorhq/cendor-libs](https://github.com/cendorhq/cendor-libs)
 - **Site:** [cendor.ai](https://cendor.ai) · [cendor.ai/cookbook](https://cendor.ai/cookbook)
 - **Docs:** [cendor.ai/docs](https://cendor.ai/docs)

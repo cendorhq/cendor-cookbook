@@ -17,9 +17,6 @@ and no network call to a model provider.
 uv run python recipes/<category>/<name>/main.py
 uv run pytest recipes/<category>/<name>        # only if the recipe ships a test file
 
-# TypeScript recipes
-(cd recipes/<category>/<name> && npm install && node index.mjs)
-node scripts/check-one-core.mjs recipes/<category>/<name>   # G1 — exactly one @cendor/core
 
 # Lint (whole repo)
 uv run ruff check .
@@ -29,7 +26,6 @@ uv run ruff format --check .
 - [ ] The recipe printed its money shot **with no key set** and no provider network call
 - [ ] `uv run ruff check .` and `uv run ruff format --check .` (run each bare and read the exit code — never pipe a gate into `tail`/`grep` and chain off `&&`)
 - [ ] `uv run pytest recipes/<category>/<name>` is green (if it ships a test file)
-- [ ] TypeScript recipe: it runs on **Node 20 and 22**, and `check-one-core.mjs` passes — a caret pin resolves only within its major, so a stale `@cendor/*` pin rots *silently green*, and two `@cendor/core` copies mean two event buses
 
 ## Checklist
 
@@ -39,11 +35,11 @@ uv run ruff format --check .
 - [ ] Any framework, host, or provider SDK I added lives in **its own dependency-group** with an upper bound at the next breaking release
 - [ ] **CI actually runs my recipe.** Every directory under `recipes/` must be reachable from a job in `.github/workflows/ci.yml` — a new category, or a recipe needing a new group, needs that job added or extended. Four recipes once shipped promising "runs green offline" that CI had never executed
 - [ ] I did **not** rename an existing recipe folder — those names are an API the cendor.ai `/cookbook` page deep-links to
-- [ ] I did not bump the `cendor-*` / `@cendor/*` ranges in `pyproject.toml` or a recipe's `package.json` across a **major** — that is a maintainer decision
+- [ ] I did not bump the `cendor-*` ranges in `pyproject.toml` across a **major** — that is a maintainer decision
 
 ## Honest claims
 
-- [ ] No invented metrics. Every cost printed traces to `prices.estimate(...)` on stated token counts, and money is `Decimal` (`decimal.js` in TypeScript), never a float
+- [ ] No invented metrics. Every cost printed traces to `prices.estimate(...)` on stated token counts, and money is `Decimal`, never a float
 - [ ] Libraries are composed only through the documented seams (`instrument()`, the `cendor.core` bus, protocols) — no `import cendor.<toolA>` from inside `cendor.<toolB>` glue
 - [ ] A framework is described as *working alongside* Cendor — never an "official integration" — and nothing claims regulatory compliance (`acttrace` produces *evidence to support* a case)
 - [ ] No credential, key, or `.env` in the diff — including inside a committed cassette
