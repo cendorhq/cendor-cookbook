@@ -9,8 +9,10 @@ counts every call as zero and **silently never binds**. That is the failure that
 the cap is in your code, in your review, in your runbook, and it is not enforcing anything.
 
 **What this shows.** The same call, three times: unpriced (cap does nothing), after one
-`prices.register_model_price(...)` line (cap blocks pre-flight), and with the cap raised (costed and
-allowed). Plus the Azure-specific traps that turn a working sample into a 400.
+`prices.register_deployment(DEPLOYMENT, like="gpt-4o")` line (cap blocks pre-flight), and with the cap
+raised (costed and allowed). You do not have to go and find a rate card — you name the model the
+deployment serves, which you already know. Plus the Azure-specific traps that turn a working sample
+into a 400.
 
 ## Run it
 
@@ -22,6 +24,7 @@ uv run python recipes/providers/azure-foundry/main.py
 export AZURE_OPENAI_ENDPOINT="https://<your-resource>.openai.azure.com"
 export AZURE_OPENAI_API_KEY="<your-key>"
 export AZURE_OPENAI_DEPLOYMENT="<your-deployment-name>"
+export AZURE_BASE_MODEL="gpt-4o"          # optional — the model that deployment serves
 RECORD=1 uv run --group apps python recipes/providers/azure-foundry/main.py
 ```
 
@@ -95,19 +98,46 @@ unpriced (as shipped)  provider=openai model=my-chat-deployment 1200 in / 400 ou
   warning: UnpricedModelWarning: tokenguard: no price for model 'my-chat-deployment', so the active USD budget (on_exceed='block') counts its calls as $0 and cannot enforce a USD cap on it.
   -> the $0.00001 USD cap did NOT bind: an unpriced call projects $0.
 
+registered            my-chat-deployment like gpt-4o -> cached, input, output rates copied
+  by hand (input=2.50, output=10.00) -> input, output   same input/output: True, cached rate: copied vs silently omitted
+
 priced (registered)   BudgetExceeded: pre-flight block: projected $0.000672500 would exceed cap $0.00001 (model=my-chat-deployment)
 priced, cap raised     provider=openai model=my-chat-deployment 1200 in / 400 out -> $0.007000000 (estimated)
   -> same deployment, same call: now costed, and the USD cap enforces pre-flight.
 ```
 
 Read the first line carefully: `provider=openai` (detection worked), exact token counts (capture
-worked), **`cost -> None`** (there is no price, and cendor says so rather than inventing one). The
-rates in `prices.register_model_price(DEPLOYMENT, input=2.50, output=10.00)` are **yours to supply** —
-Azure list price for whatever model sits behind the deployment. Cendor never guesses them.
+worked), **`cost -> None`** (there is no price, and cendor says so rather than inventing one).
 
-`register_model_price` lives in **`cendor.core.prices`** (since `cendor-core` 1.15.0), so this recipe
-is pure libraries door — no SDK distribution required. `cendor.sdk.register_model_price` still works
-and is now a thin re-export of it.
+## Two ways to price it, and the common one first
+
+```python
+from cendor.core import prices
+
+prices.register_deployment(DEPLOYMENT, like="gpt-4o")            # core >= 1.16.0
+prices.register_model_price(DEPLOYMENT, input=2.50, output=10.00)  # or: USD per 1M, yours to supply
+```
+
+`register_deployment` copies the base model's rates. That is what almost everyone actually wants,
+because you know which model your deployment serves and you would otherwise be re-typing a published
+rate card. Four properties, all deliberate:
+
+- **Nothing is inferred from the deployment's name.** `like` is an explicit mapping you supply — not
+  `-preview`/`-latest` alias guessing, which was considered and rejected, because a confidently wrong
+  price is worse than an honest `None`.
+- **An unknown base raises `UnknownModelError`.** Registering nothing and leaving the deployment
+  quietly unpriced would reproduce the exact silence the call exists to remove.
+- **Every rate key is copied**, cached and cache-write included — which the two-number hand-typed form
+  silently omits, as the third line of the output above measures.
+- **Copy-at-registration, not a live alias.** A later `prices.refresh()` that reprices `gpt-4o` does
+  not reprice your deployment; call it again. Both forms survive `refresh()` otherwise.
+
+Use `register_model_price` when you hold the exact numbers and there is no base model to copy — a
+fine-tune, a negotiated rate. Both live in **`cendor.core.prices`** (`register_model_price` since
+`cendor-core` 1.15.0, `register_deployment` since 1.16.0; in TypeScript
+`prices.registerDeployment(dep, { like })` since `@cendor/core` 3.2.0), so this recipe is pure
+libraries door — no SDK distribution required. `cendor.sdk.register_model_price` still works and is
+now a thin re-export.
 
 ## Traps this recipe exists to teach
 
@@ -117,7 +147,7 @@ Each one was measured against a real Foundry deployment running `gpt-5-mini`.
    projects `$0`, so nothing ever exceeds. cendor raises `UnpricedModelWarning` — and
    `tokenguard.configure(on_unpriced="raise")` turns it into a refusal if you would rather fail
    closed. A **token** cap (`budget(tokens=…)`) binds on an unpriced model perfectly well; only money
-   needs a rate.
+   needs a rate. The one-line fix is `prices.register_deployment(dep, like=<the model it serves>)`.
 2. **`max_tokens` is a hard 400 on the reasoning families.** o-series and `gpt-5-*` answer
    *"Unsupported parameter: 'max_tokens' is not supported with this model. Use
    'max_completion_tokens' instead."* — every call, so the sample never runs at all. And **a

@@ -5,7 +5,9 @@ endpoint, so `instrument()` detects them as `openai` and capture is free. The th
 about is **money**: you call your *deployment name*, not a model id, so the price table has no row
 for it. Usage and the audit chain stay exact; the cost is `None` and a USD `budget(...)` silently
 cannot bind. This recipe shows that happening, then fixes it with one
-`prices.register_model_price(...)` line — and the SAME call becomes enforceable.
+`prices.register_deployment(DEPLOYMENT, like="gpt-4o")` line — you name the model the deployment
+serves, not a rate card — and the SAME call becomes enforceable. `register_model_price(...)` is
+still there for when you hold the exact numbers instead.
 
 Offline: a fake OpenAI-shaped client. Run:
   uv run python recipes/providers/azure-foundry/main.py
@@ -13,6 +15,7 @@ Offline: a fake OpenAI-shaped client. Run:
 Record a real cassette (maintainer, needs a key + `openai` installed):
   RECORD=1 uv run --group apps python recipes/providers/azure-foundry/main.py
   # env: AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT
+  # optional: AZURE_BASE_MODEL (the model your deployment serves; default gpt-4o)
   # optional: AZURE_PROJECT_ENDPOINT (to record through the Foundry SDK instead)
 """
 
@@ -27,6 +30,11 @@ from cendor.tokenguard import BudgetExceeded, budget, reset
 # Your Foundry deployment name — arbitrary by design. `gpt-4o` behind a deployment called
 # `prod-chat` is normal, which is exactly why the price table cannot guess it.
 DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "my-chat-deployment")
+
+# The model your deployment actually serves. You always know this; nothing can infer it from the
+# deployment's name, and cendor deliberately does not try (a confidently wrong price is worse than
+# an honest `None`).
+BASE_MODEL = os.environ.get("AZURE_BASE_MODEL", "gpt-4o")
 
 # ⚠️ The output-cap parameter is not the same on every model: the reasoning families (o-series,
 # gpt-5-*) reject `max_tokens` with a 400 naming `max_completion_tokens`. A deployment name tells
@@ -143,10 +151,26 @@ def main() -> None:
         print(f"  warning: {type(w.message).__name__}: {str(w.message).split('.')[0]}.")
     print("  -> the $0.00001 USD cap did NOT bind: an unpriced call projects $0.")
 
-    # 2 — one line of truth, from `cendor-core` itself (since 1.15.0 — no SDK distribution needed).
-    #     Rates are YOURS to supply (Azure list price for the model behind the deployment); cendor
-    #     never guesses them. This survives prices.refresh().
-    prices.register_model_price(DEPLOYMENT, input=2.50, output=10.00)  # USD per 1M tokens
+    # 2 — one line of truth, from `cendor-core` itself (no SDK distribution needed). You do not have
+    #     to find a rate card: name the MODEL the deployment serves and its rates are copied
+    #     (`register_deployment`, core 1.16.0). An unknown base RAISES rather than leaving the
+    #     deployment quietly unpriced. Survives prices.refresh().
+    by_base = prices.register_deployment(DEPLOYMENT, like=BASE_MODEL)
+
+    # The alternative, for when you hold the exact numbers instead (a fine-tune, a negotiated rate):
+    # register_model_price takes USD per 1M tokens directly. Registered under a scratch id here only
+    # so the comparison below does not overwrite the deployment.
+    by_hand = prices.register_model_price("rates-typed-by-hand", input=2.50, output=10.00)
+    print(
+        f"\nregistered            {DEPLOYMENT} like {BASE_MODEL} -> "
+        f"{', '.join(sorted(by_base))} rates copied"
+    )
+    print(
+        f"  by hand (input=2.50, output=10.00) -> {', '.join(sorted(by_hand))}"
+        f"   same input/output: {all(by_base[k] == by_hand[k] for k in ('input', 'output'))}"
+        f", cached rate: {'copied' if 'cached' in by_base else 'absent'} vs "
+        f"{'typed' if 'cached' in by_hand else 'silently omitted'}"
+    )
 
     reset()
     blocked = False
