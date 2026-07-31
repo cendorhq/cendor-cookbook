@@ -56,7 +56,7 @@ frameworks-langchain = [
   "langgraph>=1.2,<2",
 ]
 frameworks-agents = [
-  "openai-agents>=0.17,<0.19",
+  "openai-agents>=0.17,<0.20",
 ]
 # Framework-bridge recipes (recipes/bridges/): expose a cendor Guardrail inside another framework's
 # own guardrail/hook seam. Offline — the recipes exercise the bridge directly, no model call.
