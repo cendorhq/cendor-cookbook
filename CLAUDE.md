@@ -16,8 +16,11 @@ contributor — [`CONTRIBUTING.md`](CONTRIBUTING.md) is the contract for that.
    version), but that script is **not in this repo** and no job in `.github/workflows/ci.yml` runs it.
    Nor would it have anything to guard: the cookbook publishes nothing (`[tool.uv] package = false`,
    no changesets), so its own `version` is inert. What a major bump means *here* is the dependency
-   **ranges the recipes pin** — `cendor-*` in `pyproject.toml` and `@cendor/*` in the three JS
-   recipes' `package.json`. Crossing one of those to a new major is the decision that needs approval.
+   **ranges the recipes pin** — the `cendor-*` ranges in `pyproject.toml`. Crossing one of those to a
+   new major is the decision that needs approval. (This repo is **Python-only** since 2026-07-31 —
+   every TypeScript recipe, and its `@cendor/*` pins, moved to `cendorhq/cendor-cookbook-js`. A
+   recipe *folder name* is an API shared by both trees: cendor.ai `/cookbook` deep-links it and the
+   MCP docs server indexes it, so renaming one means renaming both.)
 2. **All libraries in one language share ONE major** — `@cendor/*` move together, `cendor-*` move
    together. Minors and patches stay independent per package.
 3. **Majors are NOT coupled across languages.** The parity matrix is the contract, not matching

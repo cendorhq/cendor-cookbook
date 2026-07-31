@@ -105,6 +105,11 @@ apps = [
 providers = [
   "google-genai>=1.0,<3",       # recipes/providers/gemini
   "boto3>=1.34,<2",             # recipes/providers/bedrock
+  # `ollama` was the one provider SDK still pulled ad hoc with `uv run --with ollama`, which is
+  # exactly the invisibility the two above were declared to fix — dependabot cannot raise a PR for
+  # a dependency that appears in no manifest. It has no upper bound worth guessing yet (0.x, and
+  # the recipe touches only `chat()`), so it carries the same shape of floor as the others.
+  "ollama>=0.4,<1",             # recipes/providers/ollama-local (OLLAMA_LIVE=1)
 ]
 # The Foundry SDK, for the azure-foundry recipe's `AIProjectClient -> get_openai_client()` variant.
 # A *user's* dependency, never Cendor's — the point of the section is that the client it returns is
