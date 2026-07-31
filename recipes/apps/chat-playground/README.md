@@ -65,6 +65,35 @@ The key **stays in process memory** — it is never written to disk, never logge
 you stop the app. (An optional `CENDOR_DEMO_KEY` signs the audit chain; it defaults to a demo
 value so the app is green out of the box.)
 
+### ⚠️ Live mode is sized differently from demo mode, on purpose
+
+Demo mode's knowledge base is deliberately huge (424 policies, a 40,000-token budget) because the
+fake client is free and has no rate limit — that size is what makes the receipt truncate and the
+`$0.50` cap trip on the 6th turn. Sending it to a **real** provider is a different story, and both
+halves were measured on 2026-07-31:
+
+* **OpenAI 429'd on turn one.** A 40k budget packs ~38.7k input tokens into every request, and the
+  default paid tier allows **30,000 tokens per minute** —
+  `429 Request too large for gpt-4o … Limit 30000, Requested 50818`.
+* **Anthropic did not 429 — it charged.** One "hi" billed **43,313 input tokens ⇒ $0.13**, which
+  blows the app's own `$0.50` cap in four turns.
+
+So live mode keeps the same *shape* at about a seventh of the size, and the mode switch retargets
+the cap for you:
+
+| | Demo | Live |
+|---|---|---|
+| context budget | `CONTEXT_BUDGET` 40,000 | `LIVE_CONTEXT_BUDGET` 6,000 |
+| knowledge base | `KB_UNITS` 424 (~38.6k tokens) | `LIVE_KB_UNITS` 48 (~4.4k tokens) |
+| input per turn | ~38,656 tokens | ~4,440 tokens |
+| default cap | `$0.50` | `$0.10` |
+| cost per turn | $0 (no network) | ~$0.006–0.014 on `gpt-4o` |
+
+Every number the sections above quote — `$0.09/turn`, the 6th-turn block, `truncated 378 → 291` —
+refers to **demo** mode, and demo mode is untouched. If your account's per-minute allowance is
+lower still, drop `LIVE_CONTEXT_BUDGET` and `LIVE_KB_UNITS`; a rate-limited turn now says so in the
+chat (and chains a `policy_flag`) instead of vanishing into a terminal traceback.
+
 ## Offline guarantee
 
 Demo mode makes **no network call** — the fake client has no socket, the acttrace detection engine

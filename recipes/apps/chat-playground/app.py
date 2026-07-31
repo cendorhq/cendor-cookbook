@@ -74,6 +74,21 @@ _ACT_CLASS = {"block": "dropped", "redact": "compressed", "flag": "truncated", "
 # and the history block visibly peels its oldest turns as the chat grows past the token budget.
 CONTEXT_BUDGET = 40_000
 RESERVE_OUTPUT = 1_000
+
+# ⚠️ LIVE MODE IS SIZED SEPARATELY, and it has to be. The numbers above are calibrated against the
+# *fake* client, which is free and has no rate limit. Sent to a real provider they are a wall:
+# a 40k budget packs ~38.7k input tokens into EVERY turn, and OpenAI's default tier allows
+# 30,000 tokens per minute — so live mode used to die on turn 1 with
+#   429 Request too large for gpt-4o ... on tokens per min (TPM): Limit 30000, Requested 50818
+# (measured 2026-07-31; the "Requested" figure is the input plus OpenAI's own output reservation).
+# It was not a slow leak either: Anthropic, whose limit is higher, billed 43,313 input tokens for
+# one "hi" — **$0.13 per message**, blowing the app's own $0.50 cap in four turns.
+# So live mode keeps the same *shape* — a KB big enough to truncate, history that peels, a cap that
+# trips after a handful of turns — at roughly a seventh of the size. The model stays the same as
+# demo mode so the receipt, the pricing and the downgrade demo all still line up.
+LIVE_CONTEXT_BUDGET = 6_000
+LIVE_KB_UNITS = 48
+LIVE_DEFAULT_CAP = 0.10  # ~$0.014/turn on gpt-4o -> trips pre-flight around the 7th live turn
 COMPRESS_THRESHOLD = 1_500  # chars pasted before squeeze kicks in
 COMPRESS_TARGET_TOKENS = 400
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # reject cassette uploads larger than 2 MB
@@ -102,9 +117,24 @@ _KB_UNIT = (
 # the 40k context budget that the history block keeps recent turns and peels its oldest ones (the
 # receipt shows "truncated 378 → 291" as the chat grows). See test_app.py::test_demo_full_loop.
 KB_UNITS = 424
-KB_DOC = "Cendor Store — Support Knowledge Base.\n" + "".join(
-    _KB_UNIT.format(n=i) for i in range(1, KB_UNITS + 1)
-)
+
+
+def _kb(units: int) -> str:
+    return "Cendor Store — Support Knowledge Base.\n" + "".join(
+        _KB_UNIT.format(n=i) for i in range(1, units + 1)
+    )
+
+
+KB_DOC = _kb(KB_UNITS)
+LIVE_KB_DOC = _kb(LIVE_KB_UNITS)
+
+
+def sizing(run_mode: str) -> tuple[int, str, float]:
+    """(context budget, knowledge base, default cap) for this run mode — see LIVE_CONTEXT_BUDGET."""
+    if run_mode == "Demo":
+        return CONTEXT_BUDGET, KB_DOC, DEFAULT_CAP
+    return LIVE_CONTEXT_BUDGET, LIVE_KB_DOC, LIVE_DEFAULT_CAP
+
 
 # Deterministic canned replies, varied in length. Several are intentionally long so the chat
 # history block grows quickly — enough to watch contextkit peel its oldest turns in the receipt.
@@ -290,13 +320,19 @@ def _call_model(
 # --------------------------------------------------------------------------- the turn pipeline
 
 
-def _build_context(history: list[dict], user_content: str, model: str) -> tuple[list[dict], Any]:
+def _build_context(
+    history: list[dict], user_content: str, model: str, run_mode: str = "Demo"
+) -> tuple[list[dict], Any]:
     """Pack system + knowledge base + chat history + the user's message to the token budget.
     Emits an AssemblyReport on the bus (so acttrace records a context_assembly entry) and returns
-    (messages, report)."""
-    ctx = Context(budget_tokens=CONTEXT_BUDGET, model=model, reserve_output=RESERVE_OUTPUT)
+    (messages, report).
+
+    ``run_mode`` picks the sizing: demo mode packs the full 40k budget (free, no rate limit), live
+    mode packs ~6k so a real provider neither 429s nor charges $0.13 a message. See `sizing()`."""
+    budget_tokens, kb_doc, _ = sizing(run_mode)
+    ctx = Context(budget_tokens=budget_tokens, model=model, reserve_output=RESERVE_OUTPUT)
     ctx.add(Block(SYSTEM_PROMPT, priority=10, pin=True, role="system"))
-    ctx.add(Block(KB_DOC, priority=5, evict="truncate", role="user"))
+    ctx.add(Block(kb_doc, priority=5, evict="truncate", role="user"))
     if history:
         ctx.add(Block(messages=list(history), priority=3, evict="drop_oldest"))
     ctx.add(Block(user_content, priority=9, pin=True, role="user"))
@@ -432,7 +468,7 @@ def _run_turn(
     bus.subscribe(capture)
     try:
         with session.audit.decision(input="chat turn", actor="user") as decision:
-            messages, report = _build_context(session.history, content, model)
+            messages, report = _build_context(session.history, content, model, run_mode)
             result["report"] = report
             try:
                 with guard:
@@ -457,6 +493,18 @@ def _run_turn(
                     severity="warning",
                     data="tokenguard_preflight",
                 )
+            except Exception as exc:  # noqa: BLE001 — a provider error is a UI state, not a crash
+                # Anything the provider raises (429 rate limit, 401 bad key, 400 bad request) used
+                # to escape into Gradio's queue as a bare traceback in the terminal, leaving the UI
+                # silent — the user saw nothing at all. It is a governance-relevant outcome, so it
+                # is flagged on the chain and rendered in the chat like a block is.
+                result["provider_error"] = f"{type(exc).__name__}: {exc}"
+                decision.flag(
+                    f"provider call failed: {type(exc).__name__}",
+                    action="flagged",
+                    severity="warning",
+                    data=type(exc).__name__,
+                )
     finally:
         bus.unsubscribe(capture)
 
@@ -475,6 +523,11 @@ def _run_turn(
                 "role": "assistant",
                 "content": "⛔ **Blocked pre-flight** — refused to keep spend under cap. $0 spent.",
             }
+        )
+    elif result.get("provider_error"):
+        session.transcript.append({"role": "user", "content": display_text})
+        session.transcript.append(
+            {"role": "assistant", "content": _provider_error_message(result["provider_error"])}
         )
     else:
         session.turn += 1
@@ -499,6 +552,27 @@ def _run_turn(
                 }
             )
     return result
+
+
+def _provider_error_message(err: str) -> str:
+    """Turn a provider exception into something a reader can act on. A 429 on a rate limit is the
+    one people actually hit, and the useful reply is not "an error occurred" — it is which knob."""
+    low = err.lower()
+    if "rate_limit" in low or "429" in low or "RateLimitError" in err:
+        return (
+            "⚠️ **The provider rate-limited this turn** (HTTP 429). Nothing was billed.\n\n"
+            f"`{err[:300]}`\n\n"
+            "Live mode packs a knowledge base into every turn, so each request is a few thousand "
+            f"tokens. If your account's tokens-per-minute allowance is lower than that, drop "
+            f"`LIVE_CONTEXT_BUDGET` (currently {LIVE_CONTEXT_BUDGET:,}) and `LIVE_KB_UNITS` "
+            f"(currently {LIVE_KB_UNITS}), or wait a minute and retry."
+        )
+    if "authentication" in low or "401" in low or "api key" in low:
+        return f"⚠️ **The provider rejected the key** — check it and try again.\n\n`{err[:300]}`"
+    return (
+        "⚠️ **The provider call failed** — nothing was billed and the turn was not recorded. "
+        f"acttrace chained a `policy_flag` for it.\n\n`{err[:400]}`"
+    )
 
 
 # --------------------------------------------------------------------------- renderers
@@ -972,8 +1046,28 @@ def on_reset(sid: str | None, policy_name: str = "default") -> tuple:
 
 
 def on_mode_change(run_mode: str) -> tuple:
+    """Reveal the provider + key rows for live mode, and retarget the cap to that mode's sizing.
+
+    The cap has to move with the mode: $0.50 is ~6 demo turns at the 40k calibration but ~35 live
+    turns at the 6k one, so leaving it put would make the pre-flight block look broken in live mode.
+    """
     live = run_mode == "Live"
-    return gr.update(visible=live), gr.update(visible=live)
+    _, _, cap_for_mode = sizing(run_mode)
+    return (
+        gr.update(visible=live),
+        gr.update(visible=live),
+        gr.update(value=cap_for_mode),
+        gr.update(
+            value=(
+                f"Live mode packs a smaller knowledge base ({LIVE_KB_UNITS} policies, "
+                f"~{LIVE_CONTEXT_BUDGET:,}-token budget) than demo mode, so one turn fits inside a "
+                f"default provider rate limit and costs about a cent. Cap set to "
+                f"${cap_for_mode:.2f}."
+            )
+            if live
+            else ""
+        ),
+    )
 
 
 # --------------------------------------------------------------------------- UI
@@ -1124,6 +1218,7 @@ def build_demo() -> gr.Blocks:
                 placeholder="stays in memory — never written or logged",
             )
         demo_note = gr.HTML(_HONEST_LABEL)
+        live_note = gr.Markdown("", elem_classes=["cd-live-note"])
 
         with gr.Row():
             with gr.Column(scale=5):
@@ -1222,7 +1317,7 @@ def build_demo() -> gr.Blocks:
         send.click(on_submit, submit_in, panel_out)
         msg.submit(on_submit, submit_in, panel_out)
 
-        run_mode.change(on_mode_change, run_mode, [provider, key])
+        run_mode.change(on_mode_change, run_mode, [provider, key, cap, live_note])
         run_mode.change(lambda m: gr.update(visible=(m == "Demo")), run_mode, demo_note)
         cap.change(on_cap_change, [cap, state], budget_html)
         policy_dd.change(on_policy_change, [policy_dd, state], [audit_html, state])
