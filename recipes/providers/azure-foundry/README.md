@@ -1,4 +1,4 @@
-# azure-foundry — cost truth for an Azure AI Foundry deployment
+# azure-foundry — cost truth for a Microsoft Foundry (formerly Azure AI Foundry) deployment
 
 **The pain.** Azure/Foundry models are called through the **standard `openai` SDK** pointed at the
 Foundry v1 GA endpoint, so capture "just works" — `instrument()` detects the client as `openai` and

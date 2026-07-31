@@ -1,9 +1,9 @@
 """azure-foundry-otel — budget + audit calls your process never made.
 
-A managed runtime (e.g. Azure AI Foundry's Agent Service) owns the agent loop server-side; your
-client never sees the calls. But it emits OpenTelemetry `gen_ai.*` spans. Forward each span's
-attributes to `otel.ingest()` and the call lands on the same cendor bus — so tokenguard budgets
-it and acttrace records it, exactly as if you'd made the call yourself.
+A managed runtime (e.g. the Agent Service in Microsoft Foundry, formerly Azure AI Foundry) owns the
+agent loop server-side; your client never sees the calls. But it emits OpenTelemetry `gen_ai.*`
+spans. Forward each span's attributes to `otel.ingest()` and the call lands on the same cendor bus
+— so tokenguard budgets it and acttrace records it, exactly as if you'd made the call yourself.
 
 Fully offline by nature (in-memory spans; no Azure account, no collector). Run:
   uv run python recipes/frameworks/azure-foundry-otel/main.py

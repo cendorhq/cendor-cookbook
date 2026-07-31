@@ -1,8 +1,8 @@
 # azure-foundry-otel — budget + audit calls your process never made
 
-**The pain.** A managed runtime (like Azure AI Foundry's Agent Service) runs the agent loop
-server-side. Your client never sees the model calls, so your cost and audit tooling — which hooks
-the client — sees nothing. All you get is OpenTelemetry `gen_ai.*` spans.
+**The pain.** A managed runtime (like the Agent Service in Microsoft Foundry, formerly Azure AI
+Foundry) runs the agent loop server-side. Your client never sees the model calls, so your cost and
+audit tooling — which hooks the client — sees nothing. All you get is OpenTelemetry `gen_ai.*` spans.
 
 **What this shows.** Forward each span's attributes to `otel.ingest()` and the call lands on the
 same cendor bus as any other — so `tokenguard` budgets it and `acttrace` records it, for calls

@@ -1,13 +1,13 @@
-"""azure-foundry — cost truth for an Azure AI Foundry deployment (an UNPRICED model id).
+"""azure-foundry — cost truth for a Microsoft Foundry deployment (an UNPRICED model id).
 
-Azure/Foundry models are called through the **standard `openai` SDK** pointed at the Foundry v1 GA
-endpoint, so `instrument()` detects them as `openai` and capture is free. The thing nobody warns you
-about is **money**: you call your *deployment name*, not a model id, so the price table has no row
-for it. Usage and the audit chain stay exact; the cost is `None` and a USD `budget(...)` silently
-cannot bind. This recipe shows that happening, then fixes it with one
-`prices.register_deployment(DEPLOYMENT, like="gpt-4o")` line — you name the model the deployment
-serves, not a rate card — and the SAME call becomes enforceable. `register_model_price(...)` is
-still there for when you hold the exact numbers instead.
+Microsoft Foundry (formerly Azure AI Foundry) models are called through the **standard `openai`
+SDK** pointed at the Foundry v1 GA endpoint, so `instrument()` detects them as `openai` and capture
+is free. The thing nobody warns you about is **money**: you call your *deployment name*, not a
+model id, so the price table has no row for it. Usage and the audit chain stay exact; the cost is
+`None` and a USD `budget(...)` silently cannot bind. This recipe shows that happening, then fixes
+it with one `prices.register_deployment(DEPLOYMENT, like="gpt-4o")` line — you name the model the
+deployment serves, not a rate card — and the SAME call becomes enforceable.
+`register_model_price(...)` is still there for when you hold the exact numbers instead.
 
 Offline: a fake OpenAI-shaped client. Run:
   uv run python recipes/providers/azure-foundry/main.py
