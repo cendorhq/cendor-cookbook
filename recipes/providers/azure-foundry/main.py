@@ -1,17 +1,19 @@
 """azure-foundry — cost truth for an Azure AI Foundry deployment (an UNPRICED model id).
 
-Azure models are called through the OpenAI SDK, so `instrument()` detects them as `openai` and
-capture is free. The thing nobody warns you about is **money**: you call your *deployment name*,
-not a model id, so the price table has no row for it. Usage and the audit chain stay exact; the
-cost is `$0` and a USD `budget(...)` silently cannot bind. This recipe shows that happening, then
-fixes it with one `register_model_price(...)` line — and the SAME call becomes enforceable.
+Azure/Foundry models are called through the **standard `openai` SDK** pointed at the Foundry v1 GA
+endpoint, so `instrument()` detects them as `openai` and capture is free. The thing nobody warns you
+about is **money**: you call your *deployment name*, not a model id, so the price table has no row
+for it. Usage and the audit chain stay exact; the cost is `None` and a USD `budget(...)` silently
+cannot bind. This recipe shows that happening, then fixes it with one
+`prices.register_model_price(...)` line — and the SAME call becomes enforceable.
 
-Offline: fake `AzureOpenAI` shape. Run:
+Offline: a fake OpenAI-shaped client. Run:
   uv run python recipes/providers/azure-foundry/main.py
 
 Record a real cassette (maintainer, needs a key + `openai` installed):
   RECORD=1 uv run --group apps python recipes/providers/azure-foundry/main.py
-  # env: AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT AZURE_OPENAI_API_VERSION
+  # env: AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT
+  # optional: AZURE_PROJECT_ENDPOINT (to record through the Foundry SDK instead)
 """
 
 import os
@@ -19,8 +21,7 @@ import re
 import warnings
 from types import SimpleNamespace
 
-from cendor.core import bus, instrument
-from cendor.sdk.pricing import register_model_price
+from cendor.core import bus, instrument, prices
 from cendor.tokenguard import BudgetExceeded, budget, reset
 
 # Your Foundry deployment name — arbitrary by design. `gpt-4o` behind a deployment called
@@ -35,8 +36,19 @@ CAP_PARAM = os.environ.get("OUTPUT_CAP_PARAM") or (
 )
 
 
-def fake_azure_openai():
-    """Stand-in for `AzureOpenAI(...)` — identical `chat.completions.create` shape, no network."""
+def v1_base_url(endpoint: str) -> str:
+    """The Foundry **v1 GA** route. Microsoft's current guidance is a plain `OpenAI` client here —
+    no `AzureOpenAI`, no `api-version`. Three endpoint forms all work:
+
+      https://<res>.openai.azure.com                      (Azure OpenAI models)
+      https://<res>.services.ai.azure.com                 (Foundry Models: DeepSeek, Grok, Llama, …)
+      https://<res>.services.ai.azure.com/api/projects/<p> (the project endpoint the portal shows)
+    """
+    return endpoint.rstrip("/") + "/openai/v1/"
+
+
+def fake_openai_client():
+    """Stand-in for the live client — identical `chat.completions.create` shape, no network."""
 
     class Completions:
         def create(self, **kwargs):
@@ -56,17 +68,39 @@ def ask(client) -> None:
     )
 
 
-def record_live() -> None:  # the RECORD=1 path — ships unrecorded; needs YOUR endpoint + key
-    from cendor import cassette
-    from openai import AzureOpenAI  # lazily imported; the offline path needs no provider SDK
+def live_client():
+    """The real thing: the v1 GA API through the standard `openai` SDK."""
+    from openai import OpenAI  # lazily imported; the offline path needs no provider SDK
 
-    client = instrument(
-        AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],  # https://<you>.openai.azure.com
+    return instrument(
+        OpenAI(
+            base_url=v1_base_url(os.environ["AZURE_OPENAI_ENDPOINT"]),
             api_key=os.environ["AZURE_OPENAI_API_KEY"],
-            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
     )
+
+
+def foundry_sdk_client():
+    """The same client, obtained from the **Foundry SDK** (`pip install azure-ai-projects`).
+
+    `get_openai_client()` returns a plain `openai.OpenAI` pointed at `<endpoint>/openai/v1`, so
+    there is nothing Foundry-specific for cendor to know — `instrument()` captures it as `openai`
+    exactly like the client above. Use this when your app already builds an `AIProjectClient`.
+    """
+    from azure.ai.projects import AIProjectClient
+    from azure.identity import DefaultAzureCredential
+
+    project = AIProjectClient(
+        endpoint=os.environ["AZURE_PROJECT_ENDPOINT"],  # …/api/projects/<your-project>
+        credential=DefaultAzureCredential(),  # Microsoft Entra ID (keyless)
+    )
+    return instrument(project.get_openai_client())
+
+
+def record_live() -> None:  # the RECORD=1 path — ships unrecorded; needs YOUR endpoint + key
+    from cendor import cassette
+
+    client = foundry_sdk_client() if os.environ.get("USE_FOUNDRY_SDK") else live_client()
     fixture = os.path.join(os.path.dirname(__file__), "fixtures", "azure-foundry.json")
 
     @cassette.use(fixture, mode="record")  # secrets are redacted on write
@@ -91,7 +125,7 @@ def main() -> None:
         record_live()
         return
 
-    client = instrument(fake_azure_openai())
+    client = instrument(fake_openai_client())
     seen: list = []
     bus.subscribe(seen.append)
 
@@ -109,9 +143,10 @@ def main() -> None:
         print(f"  warning: {type(w.message).__name__}: {str(w.message).split('.')[0]}.")
     print("  -> the $0.00001 USD cap did NOT bind: an unpriced call projects $0.")
 
-    # 2 — one line of truth. Rates are YOURS to supply (Azure list price for the model behind the
-    #     deployment); cendor never guesses them. This survives prices.refresh().
-    register_model_price(DEPLOYMENT, input=2.50, output=10.00)  # USD per 1M tokens
+    # 2 — one line of truth, from `cendor-core` itself (since 1.15.0 — no SDK distribution needed).
+    #     Rates are YOURS to supply (Azure list price for the model behind the deployment); cendor
+    #     never guesses them. This survives prices.refresh().
+    prices.register_model_price(DEPLOYMENT, input=2.50, output=10.00)  # USD per 1M tokens
 
     reset()
     blocked = False

@@ -57,7 +57,11 @@ fake, so CI costs nothing. To go live, replace its body:
 
 ```js
 import OpenAI from 'openai';
-return instrument(new OpenAI());        // or new AzureOpenAI({...}) / new Anthropic()
+return instrument(new OpenAI());        // or new Anthropic()
+// Azure AI Foundry — the same client on the v1 GA endpoint (no apiVersion):
+return instrument(new OpenAI({
+  baseURL: `${process.env.AZURE_OPENAI_ENDPOINT.replace(/\/+$/, '')}/openai/v1/`,
+  apiKey: process.env.AZURE_OPENAI_API_KEY }));
 ```
 
 Nothing else changes. `instrument()` detection is structural, not name-based.
@@ -143,8 +147,8 @@ Each was measured against a real agent, and every one of them *looks* like worki
 13. **The output-cap parameter is not the same on every model, and the wrong one is a hard 400.**
     The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`: *"Unsupported parameter:
     'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."* Measured
-    against a Foundry deployment running `gpt-5-mini` (api-version `2024-10-21`) — the
-    `new AzureOpenAI({...})` swap this recipe offers. It bites hardest on Azure because **a deployment
+    against a Foundry deployment running `gpt-5-mini` — the Azure
+    swap this recipe offers. It bites hardest on Azure because **a deployment
     name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5 behind it, so no name heuristic is
     authoritative. `agent.mjs` defaults by name, honours `OUTPUT_CAP_PARAM`, and switches once if the
     provider names the other parameter.

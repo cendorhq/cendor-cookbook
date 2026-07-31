@@ -54,7 +54,12 @@ middleware, real `TurnState`, over a real socket. The only stand-in is the provi
 
 ```python
 from openai import AsyncOpenAI
-return instrument(AsyncOpenAI())        # or AsyncAzureOpenAI(...) / AsyncAnthropic(...)
+return instrument(AsyncOpenAI())        # or AsyncAnthropic(...)
+
+# Azure AI Foundry — the same client, pointed at the v1 GA endpoint (no api-version):
+return instrument(AsyncOpenAI(
+    base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')}/openai/v1/",
+    api_key=os.environ["AZURE_OPENAI_API_KEY"]))
 ```
 
 Nothing else changes. `instrument()` detection is structural, not name-based.
@@ -144,7 +149,7 @@ Each of these was measured against a real agent, and every one of them *looks* l
     The reasoning families (o-series, `gpt-5-*`) reject `max_tokens`:
     *"Unsupported parameter: 'max_tokens' is not supported with this model. Use
     'max_completion_tokens' instead."* Measured against a Foundry deployment running `gpt-5-mini`
-    (api-version `2024-10-21`) — i.e. the `AsyncAzureOpenAI(...)` swap this recipe offers. It bites
+    — i.e. the Azure swap this recipe offers. It bites
     hardest on Azure because **a deployment name is arbitrary**: `MODEL` may be `prod-chat` with a
     gpt-5 behind it, so no name heuristic is authoritative. `agent.py` defaults by name, honours
     `OUTPUT_CAP_PARAM`, and switches once if the provider names the other parameter.

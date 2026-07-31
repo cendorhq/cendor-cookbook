@@ -8,7 +8,7 @@ never binds**: the cap is in your code and it is enforcing nothing.
 
 **What this shows.** `instrument()` maps the camelCase usage onto the same normalized `LLMCall`, and
 then the two caps that actually work on an unpriced id: a **token** cap needs no rate at all, and a
-**USD** cap needs exactly one `register_model_price(...)` line.
+**USD** cap needs exactly one `prices.register_model_price(...)` line.
 
 ## Run it
 
@@ -53,7 +53,7 @@ Read the three enforcement lines as a set:
   cap. The exception says exactly that and names the fix. (Needs `cendor-tokenguard >= 1.6.2` — before
   that release this same breach printed `spent $0 > cap $None` and advised using `block`, which is what
   the caller had passed. Found by this recipe.)
-- **`usd=`** — after `register_model_price`, the projection is compared **before** the request is sent:
+- **`usd=`** — after `prices.register_model_price`, the projection is compared **before** the request is sent:
   the call never happens, `$0.00` is spent.
 - **`priced`** — the same id and the same call, now costed. The rates are **yours to supply**
   (`input=0.06, output=0.24` USD per 1M is Nova-2-Lite-shaped); cendor never guesses a marketplace
@@ -80,5 +80,5 @@ No key, secret, account id, region or model id of anyone's is committed here. `b
 default in the file is a public marketplace id, not an account-scoped resource. CI has no secrets — a
 recipe that needs credentials to go green is a bug in the recipe.
 
-Libraries: `core`, `tokenguard`, `sdk` (for `register_model_price`) · Offline ✓ ·
+Libraries: `core`, `tokenguard` · Offline ✓ ·
 [← all recipes](../../../README.md)

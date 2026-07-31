@@ -66,8 +66,8 @@ const MAX_OUTPUT_TOKENS = 48;
 //   400 Unsupported parameter: 'max_tokens' is not supported with this model.
 //       Use 'max_completion_tokens' instead.
 //
-// Measured against a Foundry deployment running `gpt-5-mini` (api-version 2024-10-21) — exactly
-// the `new AzureOpenAI({...})` swap `makeClient()` offers below. It matters more here than in a
+// Measured against a Foundry deployment running `gpt-5-mini` — exactly the
+// Azure swap `makeClient()` offers below. It matters more here than in a
 // plain OpenAI app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat`
 // with a gpt-5 behind it, so no name heuristic can be authoritative. Hence: heuristic default,
 // env override, and a one-shot switch when the provider tells us which name it wants.
@@ -92,7 +92,11 @@ const HISTORY_PROP = 'cendorHistory';
  * The provider client, wrapped once. **Swap the body, keep the `instrument()`.**
  *
  *   import OpenAI from 'openai';
- *   return instrument(new OpenAI());        // or new AzureOpenAI({...}) / new Anthropic()
+ *   return instrument(new OpenAI());        // or new Anthropic()
+ *   // Azure AI Foundry — the same client on the v1 GA endpoint (no apiVersion):
+ *   return instrument(new OpenAI({
+ *     baseURL: `${process.env.AZURE_OPENAI_ENDPOINT.replace(/\/+$/, '')}/openai/v1/`,
+ *     apiKey: process.env.AZURE_OPENAI_API_KEY }));
  *
  * The fake below keeps this recipe offline and keyless.
  */

@@ -86,9 +86,9 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [openai-responses](recipes/providers/openai-responses/) | provider · RECORD | Capture reasoning + cached tokens on the Responses API | `core` `tokenguard` | ✓ |
 | [anthropic](recipes/providers/anthropic/) | provider · RECORD | Price prompt-cache reads/writes correctly, audited | `core` `tokenguard` `acttrace` | ✓ |
 | [ollama-local](recipes/providers/ollama-local/) | provider · Local | Budgeted, recorded, audited turn on a $0 local model | `core` `tokenguard` `cassette` `acttrace` | ✓ |
-| [azure-foundry](recipes/providers/azure-foundry/) | provider · RECORD | Your **deployment name** is unpriced, so a USD cap silently never binds — then one `register_model_price` line and it does | `core` `tokenguard` `sdk` | ✓ |
-| [gemini](recipes/providers/gemini/) | provider · RECORD | `usage_metadata`, not `usage` — one seam, budget + audit unchanged | `core` `tokenguard` `acttrace` | ✓ |
-| [bedrock](recipes/providers/bedrock/) | provider · RECORD | camelCase Converse usage, and the two caps that work on an unpriced marketplace id | `core` `tokenguard` `sdk` | ✓ |
+| [azure-foundry](recipes/providers/azure-foundry/) | provider · RECORD | Your **deployment name** is unpriced, so a USD cap silently never binds — then one `prices.register_model_price` line and it does. v1 GA endpoint + the Foundry SDK | `core` `tokenguard` | ✓ |
+| [gemini](recipes/providers/gemini/) | provider · RECORD | `usage_metadata`, not `usage` — one seam, budget + audit unchanged; streaming captured | `core` `tokenguard` `acttrace` | ✓ |
+| [bedrock](recipes/providers/bedrock/) | provider · RECORD | camelCase Converse usage, and the two caps that work on an unpriced marketplace id | `core` `tokenguard` | ✓ |
 | [langchain](recipes/frameworks/langchain/) | framework · Live swap | Cost + audit without changing LangChain code (+LangGraph) | `core` `tokenguard` `acttrace` | ✓ |
 | [openai-agents-sdk](recipes/frameworks/openai-agents-sdk/) | framework · RECORD | Budget + audit a loop the Agents SDK fully owns | `core` `tokenguard` `acttrace` | ✓ |
 | [llamaindex](recipes/frameworks/llamaindex/) | framework | Pack RAG retrieval to a token budget, reversibly | `core` `contextkit` `squeeze` | ✓ |

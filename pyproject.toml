@@ -17,13 +17,21 @@ dependencies = [
   # >=1.14.1 for the agents/ recipes: a replayed call on an **async** client is awaitable again, which
   # is what lets a whole aiohttp/express agent replay from a cassette with no app-side shim. Below
   # that floor `await client.chat.completions.create(...)` raises TypeError under a replay scope.
-  "cendor-core>=1.14.1,<2.0",
+  # >=1.15.0 for the providers/ recipes: `cendor.core.prices.register_model_price(...)` is public on
+  # the LIBRARIES door (before it, pricing a deployment needed the cendor-sdk distribution), and
+  # `generate_content_stream` is captured, which is what the gemini recipe's streaming section shows.
+  "cendor-core>=1.15.0,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
   # custom-category recipes). cendor-guardrails is the deterministic gate itself.
   "cendor-guardrails>=1.4,<2.0",
   "cendor-acttrace>=1.4,<2.0",
+  # G4 — an EXPLICIT tokenguard floor. `cendor-libs` pulls it transitively, so a fresh resolve could
+  # legally land on 1.6.1 and reproduce the post-flight BudgetExceeded message the bedrock recipe
+  # exists to teach against ("spent $X > cap $None" for a TOKEN cap). >=1.6.3 also carries the pin
+  # that `on_exceed="break"` cuts a **Gemini** stream (it could not, before core 1.15 captured one).
+  "cendor-tokenguard>=1.6.3,<2.0",
 ]
 
 [tool.uv]
@@ -85,6 +93,21 @@ apps = [
   "gradio>=5,<6",
   "openai>=1.40,<3",
   "anthropic>=0.40,<1",
+]
+# G7 — the provider SDKs the recipes/providers/ RECORD=1 paths need. They used to be pulled ad hoc
+# with `uv run --with …`, which works but is invisible to dependabot, so a CVE or a breaking release
+# in either would never raise a PR here. Declared (with upper bounds, like the framework groups) so
+# they are tracked; the OFFLINE path still imports none of them.
+providers = [
+  "google-genai>=1.0,<3",       # recipes/providers/gemini
+  "boto3>=1.34,<2",             # recipes/providers/bedrock
+]
+# The Foundry SDK, for the azure-foundry recipe's `AIProjectClient -> get_openai_client()` variant.
+# A *user's* dependency, never Cendor's — the point of the section is that the client it returns is
+# a plain `openai.OpenAI`, so cendor needs no Foundry-specific code.
+providers-foundry = [
+  "azure-ai-projects>=2.3,<3",
+  "azure-identity>=1.20,<2",
 ]
 
 [tool.pytest.ini_options]

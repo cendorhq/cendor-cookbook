@@ -99,8 +99,8 @@ CONTEXT_BUDGET_TOKENS = 1200
 #   400 Unsupported parameter: 'max_tokens' is not supported with this model.
 #       Use 'max_completion_tokens' instead.
 #
-# Measured against a Foundry deployment running `gpt-5-mini` (api-version 2024-10-21) — which is
-# exactly the `AsyncAzureOpenAI(...)` swap `make_client()` offers below, so the recipe's own
+# Measured against a Foundry deployment running `gpt-5-mini` — which is exactly
+# the Azure swap `make_client()` offers below, so the recipe's own
 # documented Azure path used to fail on its first call. It matters here more than in a plain OpenAI
 # app because **an Azure deployment name is arbitrary**: `MODEL` may be `prod-chat` with a gpt-5
 # behind it, so no name heuristic can be authoritative. Hence: heuristic default, env override,
@@ -129,7 +129,13 @@ def make_client() -> Any:
     Production::
 
         from openai import AsyncOpenAI
-        return instrument(AsyncOpenAI())      # or AsyncAzureOpenAI(...), AsyncAnthropic(...)
+        return instrument(AsyncOpenAI())      # or AsyncAnthropic(...)
+
+    Azure AI Foundry — the SAME client on the v1 GA endpoint, no ``api-version``::
+
+        return instrument(AsyncOpenAI(
+            base_url=f"{os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')}/openai/v1/",
+            api_key=os.environ["AZURE_OPENAI_API_KEY"]))
 
     The fake below keeps this recipe offline and keyless. It is an *async* client on purpose: an
     aiohttp handler is async, and the async path is the one that used to break under cassette replay

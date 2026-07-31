@@ -41,22 +41,40 @@ audit    : verify=True — ok: 7 entries, head 3b729c5f890c… (signatures verif
 configure nothing. The second turn never reaches the model: the projection is compared to the cap
 before the request goes out, so the refusal costs `$0.00`.
 
+## Streaming is captured too (`cendor-core` >= 1.15.0)
+
+Gemini does not take a `stream=True` flag — it streams through a **separate method**, which is
+exactly why capture used to miss it entirely: a streamed Gemini call raised no error and emitted no
+`LLMCall`, so it was invisible to budgets and audit. Since `cendor-core` 1.15.0 the streaming twins
+are their own detection target, and nothing about your code changes:
+
+```python
+for chunk in client.models.generate_content_stream(model=MODEL, contents="Count to five"):
+    print(chunk.text, end="")
+# one LLMCall lands when the stream completes — usage, cost, audit, exactly like a non-streamed call
+```
+
+Three details worth knowing, all measured:
+
+- **Usage comes from the LAST chunk.** Gemini puts `usage_metadata` on *every* chunk carrying the
+  **running** totals, so the final chunk is the real figure. (Reading the first one — the rule that
+  works for OpenAI, where usage rides one terminal chunk — would under-count every stream.)
+- **A stream that reports no usage still emits**, with cendor's offline estimate and
+  `metadata["usage_estimated"] = True` so you can tell the two apart.
+- **Mid-stream governance works.** `budget(tokens=…, on_exceed="break")` cuts a runaway stream and
+  closes it, then settles one `LLMCall` for what was actually consumed.
+
 ## Honest limits
 
-- **Streaming is not captured on the libraries door.** `instrument()` wraps
-  `models.generate_content` and its async twin `aio.models.generate_content`, but **not**
-  `generate_content_stream` — a streamed Gemini call raises no error and emits no `LLMCall`, so it is
-  invisible to budgets and audit. Use `cendor-sdk`'s Gemini provider if you need governed streaming,
-  or keep the libraries-door path non-streamed.
 - **Not every Gemini id is priced.** The bundled snapshot (`2026-07-13`) carries six Gemini rows;
   `gemini-2.0-flash`, for instance, is **not** one of them, and an unpriced model costs `None` — so a
   USD budget cannot bind to it. `prices.models()` lists what is priced, and
-  `register_model_price(...)` adds a rate (see [azure-foundry](../azure-foundry/) for that story in
-  full).
-- **A known Gemini rough edge, stated rather than hidden:** `cendor-acttrace`'s redact-before-send
-  reroute writes an OpenAI-shaped message list into `contents`, which `google-genai` rejects. That is
-  why this recipe budgets and audits but does not demonstrate `guard(..., action="redact")` on Gemini.
-  Tracked in the suite; not fixed as of the shelf this recipe was verified against.
+  `prices.register_model_price(...)` adds a rate (see [azure-foundry](../azure-foundry/) for that
+  story in full).
+- **`guard(..., action="redact")` on Gemini needs `cendor-core` >= 1.15.0.** The redact-before-send
+  reroute used to write an OpenAI-shaped message list into `contents`, which `google-genai` rejects —
+  the redaction fired and then made the request unsendable. Core now back-maps it onto Gemini's own
+  `contents` shape (string / `Content` / `Part`), the same way the embeddings path already did.
 
 ## Your keys stay yours
 

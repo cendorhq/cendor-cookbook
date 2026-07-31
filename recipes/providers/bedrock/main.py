@@ -6,7 +6,7 @@ level down from where an OpenAI reader looks — and every Bedrock **model id** 
 usage; this recipe shows the two caps that still work on an unpriced model:
 
   * a **token** budget binds with no rate at all — it counts tokens, not dollars;
-  * a **USD** budget binds after one `register_model_price(...)` line, which is yours to supply.
+  * a **USD** budget binds after one `prices.register_model_price(...)` line, yours to supply.
 
 Offline: fake boto3 `bedrock-runtime` shape. Run:
   uv run python recipes/providers/bedrock/main.py
@@ -19,8 +19,7 @@ Record a real cassette (maintainer, needs AWS credentials + `boto3` installed):
 import os
 from types import SimpleNamespace
 
-from cendor.core import bus, instrument
-from cendor.sdk.pricing import register_model_price
+from cendor.core import bus, instrument, prices
 from cendor.tokenguard import BudgetExceeded, budget, reset
 
 MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "eu.amazon.nova-2-lite-v1:0")
@@ -102,7 +101,7 @@ def main() -> None:
         print(f"\ntokens=  {e}")
 
     # 2 — a USD cap needs a rate. Supply Bedrock's published price for the model behind the id.
-    register_model_price(MODEL_ID, input=0.06, output=0.24)  # USD per 1M tokens
+    prices.register_model_price(MODEL_ID, input=0.06, output=0.24)  # USD per 1M tokens
     reset()
     try:
         with budget(usd=0.000_01, on_exceed="block"):
