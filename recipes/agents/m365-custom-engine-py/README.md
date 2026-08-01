@@ -279,6 +279,41 @@ Expect **two OpenTelemetry span families** from a governed agent — the hosting
 `microsoft_agents` spans alongside `cendor.core` / `cendor.acttrace` — and three with MAF. That is
 additive, not a conflict.
 
+### Exporting them (this recipe ships no OTel bootstrap, on purpose)
+
+A hosted agent's telemetry belongs to the host application, not to a sample, so `agent.py` sets up
+no exporter. Everything it emits reaches any OTLP backend once *your* app configures one.
+
+⚠️ **`OTEL_EXPORTER_OTLP_ENDPOINT` on its own does nothing, and the failure is silent.** Cendor's
+telemetry is `mode=auto`: the emitter attaches only once a **global** `TracerProvider` exists.
+Measured 2026-08-01 — with just the variable set, `main.py` runs green and the collector receives
+**nothing**; with the five lines below, the same run lands **10 calls and 45 governance events**.
+`CENDOR_DEBUG_TELEMETRY=1` prints which state you are in:
+`armed (mode=auto); waiting for a provider` versus `provider=detected, emitter=attached`.
+
+```python
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(provider)      # the ONE global setup — your app owns it
+```
+
+To watch a conversation locally rather than wire a hosted backend:
+
+```bash
+docker run --rm -p 3000:3000 -p 4318:4318 -v cendor-monitor-data:/data \
+  ghcr.io/cendorhq/cendor-monitor:0.15.0
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+Cendor Monitor is optional dev tooling — no library depends on it, Cendor never operates a telemetry
+endpoint, and what it shows is an **operational copy**: `verify()` runs on the audit file on your
+host, never on that telemetry. See `cendor-libs/docs/observability.md`.
+
 ## Pins
 
 The PyPI shelf this recipe was **live-verified against on 2026-07-30** — a record of what was run, not
