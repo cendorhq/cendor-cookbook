@@ -6,8 +6,16 @@ runnable script and a pytest module.
 
 Run as a script:  uv run python recipes/quickstarts/cassette/main.py
 Run as a test:     uv run pytest recipes/quickstarts/cassette/main.py
+
+Against a real provider (records once with your key, then replays offline forever):
+  LIVE=1 OPENAI_API_KEY=sk-... uv run --group apps python recipes/quickstarts/cassette/main.py
+
+⚠️ The live run is the one that makes the point. Offline, "the replay made 0 calls" is asserted
+against a fake we own; live, run 1 genuinely bills you and run 2 genuinely does not — and the
+second run's latency drops to the disk read. That gap is the whole reason cassette exists.
 """
 
+import os
 import tempfile
 from pathlib import Path
 from time import perf_counter
@@ -16,12 +24,31 @@ from types import SimpleNamespace
 from cendor import cassette
 from cendor.core import instrument
 
+LIVE = bool(os.environ.get("LIVE"))
+MODEL = os.environ.get("LIVE_MODEL", "gpt-4o-mini") if LIVE else "gpt-4o"
+
 # Counts calls that reached the client. A replay recipe that only compared OUTPUT would pass just
 # as happily if the "replay" quietly re-called the provider — the call count is the actual claim.
+#
+# ⚠️ Under LIVE=1 this counter wraps the REAL client, so it still counts correctly. That is worth
+# saying because the obvious shortcut — counting on the bus instead — would be wrong: a replayed
+# call still emits an LLMCall (flagged `replayed`), so a bus count reads 1 for a run that touched
+# no network at all.
 _calls = {"n": 0}
 
 
 def make_client():
+    """The fake, or a real OpenAI client. Everything below is identical for both."""
+    if LIVE:
+        from openai import OpenAI  # lazy: the offline path needs no provider SDK
+
+        # ⚠️ `instrument(_counted(...))`, NOT `_counted(instrument(...))`. The counter has to sit
+        # exactly where the offline fake sits — BELOW the interceptor chain — because a replayed
+        # call is served by cassette's interceptor and never reaches the client at all. Wrapped the
+        # other way round the counter reads 1 on replay, and the recipe's central claim ("0 calls")
+        # fails against a replay that is working perfectly. Measured on the first live run.
+        return instrument(_counted(OpenAI()))
+
     class Completions:
         def create(self, **kwargs):
             _calls["n"] += 1
@@ -33,10 +60,28 @@ def make_client():
     return instrument(SimpleNamespace(chat=SimpleNamespace(completions=Completions())))
 
 
+def _counted(client):
+    """Count calls that reach the RAW client, then hand it to `instrument()`.
+
+    This is the same vantage point the offline fake occupies, which is what makes the two paths
+    comparable: whatever the interceptor chain refuses or serves from disk never gets here.
+    """
+    inner = client.chat.completions.create
+
+    def create(**kwargs):
+        _calls["n"] += 1
+        return inner(**kwargs)
+
+    client.chat.completions.create = create
+    return client
+
+
 def _run_agent() -> str:
     client = make_client()
     resp = client.chat.completions.create(
-        model="gpt-4o", messages=[{"role": "user", "content": "I was double charged"}]
+        model=MODEL,
+        messages=[{"role": "user", "content": "I was double charged"}],
+        **({"max_tokens": 24} if LIVE else {}),
     )
     return resp.choices[0].message.content
 
@@ -64,6 +109,8 @@ def main() -> None:
     print(f"run 1: recorded ({rec['n']} call, {rec['ms']:.1f} ms)")
     print(f"run 2: replayed ({rep['n']} calls, offline, {rep['ms']:.1f} ms)")
     print(f"same assertion green: {rec['out'] == rep['out']!r} == {rec['out']!r}")
+    if LIVE:
+        print(f"(LIVE: run 1 hit {MODEL} and billed you; run 2 read the file and did not)")
 
     assert rec["n"] == 1, "the first run should have made exactly one real call"
     assert rep["n"] == 0, "the replay reached the client — it is not offline"
