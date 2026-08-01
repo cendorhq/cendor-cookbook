@@ -31,6 +31,14 @@ up for and nothing to spend.
 > forks: a recipe folder name means the same thing in both trees. They are separate repos so each
 > has one unambiguous toolchain; a single repo carrying a root `pyproject.toml` *and* scattered
 > `package.json` files gives a devcontainer nothing definite to provision.
+>
+> **Since 2026-08-01 the two trees are at parity: 52 of the 53 recipes here have a TypeScript twin.**
+> The exception is [`apps/chat-playground`](recipes/apps/chat-playground/), which is a **Gradio** app
+> — Gradio is Python-only, so a TypeScript port would be a *different application* wearing a twin's
+> folder name. Four folder names differ deliberately: `quickstarts/core`, `sdk/governed-agent` and
+> `agents/m365-custom-engine-py` carry a `-js` suffix on the other side for historical reasons, and
+> `testing/pytest-cassette` is `testing/vitest-cassette` there because `pytest` is a Python toolchain
+> name and the twin genuinely is a different test runner.
 
 **Running a recipe live?** Swap the fake client for a real one — or, in the SDK recipes, drop the
 explicit `client` and set your provider's standard env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …).
