@@ -259,8 +259,10 @@ And within the model meter, three honest limits:
   `emulator` with webchat. So validate a streamed break with
   `agentsplayground -c msteams` on Python.
 - **`channelData.cendor` is for the channel / your back end.** Whether a *client* surfaces it is
-  client-specific, and the M365 Agents Playground projects `channelData` away in its UI (it is still
-  on the wire). Assert it in a test or log it; don't tell people to look for it in the Playground.
+  client-specific. The M365 Agents Playground's **chat pane** projects `channelData` away — but its
+  **Log Panel does not**: click the outbound activity (`message 201`, the agent → Playground
+  direction) and the Request tab shows the whole Activity JSON with the envelope in it (measured on
+  Playground 0.2.28). Assert it in a test or log it rather than depending on a client to render it.
 
 ## Orchestration layers
 
