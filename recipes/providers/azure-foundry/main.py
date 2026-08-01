@@ -202,6 +202,32 @@ def main() -> None:
         f"{'typed' if 'cached' in by_hand else 'silently omitted'}"
     )
 
+    # 3 — and now SHOW it. `prices.explain(id)` answers "why is my cost that number?" without you
+    #     reading any source: which table answered, whether one of YOUR registrations is overriding
+    #     it, which source the underlying rate came from, and that source's own as-of date.
+    #     Offline — it reads the active table, it does not fetch.
+    e = prices.explain(DEPLOYMENT)
+    print(f"\nexplain({DEPLOYMENT!r})")
+    print(f"  {e.summary()}")
+    print(f"  how={e.how}  registered={e.registered}  table={e.source_name} ({e.table_origin})")
+    for note in e.notes:
+        print(f"  note: {note}")
+
+    # For comparison, a model the snapshot DOES know. `row_source`/`row_asof` come from the feed's
+    # per-row provenance, so this is the specific rate's origin, not the table's.
+    base = prices.explain(BASE_MODEL)
+    print(f"explain({BASE_MODEL!r})")
+    print(f"  {base.summary()}")
+    print(f"  rate came from: {base.row_source or base.source_name} as of "
+          f"{base.row_asof or base.snapshot_date or 'undated'}")
+
+    # To pull today's list prices instead of the bundled snapshot, one call — a public, keyless GET:
+    #     prices.refresh()                                  # the cendor-prices feed
+    #     prices.refresh(source="azure", region="eastus2")  # Microsoft's own Retail Prices catalog
+    #     prices.refresh(source="aws", region="us-east-1")  # Amazon's own Bedrock price files
+    # Not called here: this recipe runs OFFLINE, like every recipe in the cookbook. Note that a
+    # refresh would NOT undo the registration above — yours outranks every table, always.
+
     reset()
     blocked = False
     try:
@@ -245,6 +271,8 @@ def main() -> None:
     assert gated, "the input gate did not fire on the Foundry client"
     assert blocked, "the USD cap still did not bind AFTER registering the deployment"
     assert seen[-1].cost and seen[-1].cost.amount > 0, "the registered deployment is still $0"
+    assert prices.explain(DEPLOYMENT).registered, "explain() should report the registration in effect"
+    assert prices.explain("no-such-model-ever").how == "unpriced", "explain() must never raise"
     assert extra == 0, "a replayed deployment call must not reach the provider"
     assert ok is True, "the audit chain failed verify()"
 
