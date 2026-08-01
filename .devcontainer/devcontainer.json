@@ -3,7 +3,10 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
   "onCreateCommand": "pip install --upgrade uv",
   "postCreateCommand": "uv sync --group apps --group dev --group providers",
-  "postStartCommand": "nohup uv run --group apps python recipes/apps/chat-playground/app.py > /tmp/playground.log 2>&1 &",
+  // Starts the playground and WAITS for port 7860 to answer. The old inline `nohup … &`
+  // returned instantly, the lifecycle shell exited, and it took the still-importing child
+  // with it — measured 2026-08-01: connection refused, and a 0-byte /tmp/playground.log.
+  "postStartCommand": "bash .devcontainer/start-playground.sh",
   "forwardPorts": [7860],
   "portsAttributes": {
     "7860": {
