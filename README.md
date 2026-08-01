@@ -165,6 +165,22 @@ Any recipe that ships a test file is also runnable via `uv run pytest recipes/<c
 Every category above has a matching job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) —
 that is what backs the "every recipe runs offline" claim, so a new category needs a new job.
 
+### Or run it as a notebook
+
+**20 recipes ship a `notebook.ipynb` beside `main.py`** — all 7 `quickstarts/`, all 7 `providers/`
+and all 6 `combos/`. Each tells the same story a cell at a time: markdown carries the *why*, every
+step prints its own output, and the final cell asserts exactly what the script asserts.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/quickstarts/core/notebook.ipynb
+```
+
+In a Codespace they are runnable the moment it opens — the devcontainer installs the Jupyter
+extension. They are **executed in CI** (`pytest --nbmake`, on both Python 3.11 and 3.13), so a
+notebook cannot rot into a screenshot of code that used to work; and because each one's final cell
+mirrors its `main.py`, a library change that breaks one breaks both.
+
 ## How offline works
 
 Three mechanisms, and every recipe uses one of them. None needs a key, a network, or a daemon.

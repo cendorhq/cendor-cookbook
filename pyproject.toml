@@ -48,6 +48,11 @@ dev = [
   "pytest-xdist>=3,<4",
   "pytest-asyncio>=0.24,<1.5",
   "ruff==0.16.0",
+  # The 20 curated notebooks (recipes/*/*/notebook.ipynb) are EXECUTED in CI: `pytest --nbmake`
+  # runs every cell top to bottom and fails on the first exception, so a notebook cannot rot into
+  # a screenshot of code that used to work. `ipykernel` is what supplies the kernel nbmake starts.
+  "nbmake>=1.5,<2",
+  "ipykernel>=6.29,<7",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
 # isolation. Each carries an upper bound at the next breaking release, so one framework's

@@ -56,4 +56,22 @@ longer — see `quickstarts/tokenguard` for the measured live figure.
 dependency of this repo, so the `--group apps` is required. The recording lands in this recipe's
 `fixtures/` directory; **no fixture is committed**, so CI always runs the fake-client path above.
 
+## Run it as a notebook
+
+[`notebook.ipynb`](notebook.ipynb) tells the same story a cell at a time — each step prints its own
+output, the markdown carries the *why*, and the last cell asserts what `main.py` asserts. Offline
+like everything else.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/providers/openai-chat/notebook.ipynb
+```
+
+In a Codespace it is already runnable — the devcontainer installs the Jupyter extension, so just
+open the file and **Run All**.
+
+> The notebooks are **executed in CI** (`pytest --nbmake`, Python 3.11 and 3.13), so one that stops
+> working turns the build red rather than quietly becoming a screenshot of code that used to run.
+
+
 Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

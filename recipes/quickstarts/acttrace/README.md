@@ -29,4 +29,22 @@ guarantee, and not legal advice.
 The signing key is read from `CENDOR_DEMO_KEY` with a fallback default so the recipe is green out
 of the box; in production, load it from your secret manager and never commit it.
 
+## Run it as a notebook
+
+[`notebook.ipynb`](notebook.ipynb) tells the same story a cell at a time — each step prints its own
+output, the markdown carries the *why*, and the last cell asserts what `main.py` asserts. Offline
+like everything else.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/quickstarts/acttrace/notebook.ipynb
+```
+
+In a Codespace it is already runnable — the devcontainer installs the Jupyter extension, so just
+open the file and **Run All**.
+
+> The notebooks are **executed in CI** (`pytest --nbmake`, Python 3.11 and 3.13), so one that stops
+> working turns the build red rather than quietly becoming a screenshot of code that used to run.
+
+
 Libraries: `core`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)

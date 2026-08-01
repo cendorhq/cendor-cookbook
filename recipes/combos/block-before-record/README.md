@@ -36,4 +36,22 @@ The consequence worth internalising: **your cassettes only contain traffic that 
 cassette recorded in production is therefore safe to replay in CI without re-running the policy — the
 policy already ran.
 
+## Run it as a notebook
+
+[`notebook.ipynb`](notebook.ipynb) tells the same story a cell at a time — each step prints its own
+output, the markdown carries the *why*, and the last cell asserts what `main.py` asserts. Offline
+like everything else.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/combos/block-before-record/notebook.ipynb
+```
+
+In a Codespace it is already runnable — the devcontainer installs the Jupyter extension, so just
+open the file and **Run All**.
+
+> The notebooks are **executed in CI** (`pytest --nbmake`, Python 3.11 and 3.13), so one that stops
+> working turns the build red rather than quietly becoming a screenshot of code that used to run.
+
+
 Libraries: `core`, `guardrails`, `cassette` · Offline ✓ · [← all recipes](../../../README.md)

@@ -27,4 +27,22 @@ You send ~58 tokens to the model instead of ~83,000, and can still recover every
 demand. (squeeze trades storage for tokens — it shrinks what you *send*, while keeping the full
 original for exact restore.)
 
+## Run it as a notebook
+
+[`notebook.ipynb`](notebook.ipynb) tells the same story a cell at a time — each step prints its own
+output, the markdown carries the *why*, and the last cell asserts what `main.py` asserts. Offline
+like everything else.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/quickstarts/squeeze/notebook.ipynb
+```
+
+In a Codespace it is already runnable — the devcontainer installs the Jupyter extension, so just
+open the file and **Run All**.
+
+> The notebooks are **executed in CI** (`pytest --nbmake`, Python 3.11 and 3.13), so one that stops
+> working turns the build red rather than quietly becoming a screenshot of code that used to run.
+
+
 Libraries: `core`, `squeeze` · Offline ✓ · [← all recipes](../../../README.md)

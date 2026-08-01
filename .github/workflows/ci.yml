@@ -340,6 +340,33 @@ jobs:
             echo "::group::$f"; uv run --python ${{ matrix.python }} python "$f"; echo "::endgroup::"
           done
 
+  notebooks:
+    # The 20 curated notebooks (quickstarts ×7, providers ×7, combos ×6) are EXECUTED, not just
+    # linted: `pytest --nbmake` starts a kernel and runs every cell top to bottom, failing on the
+    # first exception. A notebook that is only ever read rots into a screenshot of code that used
+    # to work; this is what stops that. Each one's final cell asserts what its `main.py` asserts,
+    # so a library change that breaks one breaks both.
+    #
+    # Negative control run before this job was trusted (2026-08-01): an `assert False` planted in
+    # one cell exited 1 and named the cell; reverting it went back to green.
+    #
+    # `--group providers` is here for the gemini/bedrock/ollama notebooks' imports; `--group apps`
+    # is NOT needed — no notebook touches the playground.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - run: uv sync --python ${{ matrix.python }} --group dev --group providers
+      - name: execute every notebook
+        run: |
+          uv run --python ${{ matrix.python }} --group dev --group providers \
+            pytest --nbmake --nbmake-timeout=300 -n auto \
+            recipes/quickstarts recipes/providers recipes/combos
+
   libs:
     # Per-library DEPTH recipes (recipes/libs/). Same loop shape as every other category job — a new
     # recipe is covered the moment it lands, which is the property that stops a README promising

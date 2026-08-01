@@ -32,4 +32,22 @@ Five turns ran ($0.45); the sixth was **blocked before the call** — `on_exceed
 have let it complete and overshoot the cap. Every dollar figure comes from `prices.estimate`
 on the stated token counts — no invented numbers.
 
+## Run it as a notebook
+
+[`notebook.ipynb`](notebook.ipynb) tells the same story a cell at a time — each step prints its own
+output, the markdown carries the *why*, and the last cell asserts what `main.py` asserts. Offline
+like everything else.
+
+```bash
+uv sync --group dev
+uv run --group dev jupyter lab recipes/quickstarts/tokenguard/notebook.ipynb
+```
+
+In a Codespace it is already runnable — the devcontainer installs the Jupyter extension, so just
+open the file and **Run All**.
+
+> The notebooks are **executed in CI** (`pytest --nbmake`, Python 3.11 and 3.13), so one that stops
+> working turns the build red rather than quietly becoming a screenshot of code that used to run.
+
+
 Libraries: `core`, `tokenguard` · Offline ✓ · [← all recipes](../../../README.md)
