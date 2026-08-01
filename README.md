@@ -40,9 +40,10 @@ Where the key goes is documented once at
 ## Start here: the Chat Playground
 
 New to Cendor? The [**Chat Playground**](recipes/apps/chat-playground/) is a chat app that makes
-the whole plumbing layer visible on every turn — budget blocking, context packing, compression,
-record/replay, and a tamper-evident audit chain, all live in one UI. Open it in the cloud with one
-click — in Codespaces it **auto-starts** on the forwarded port 7860 — or run it locally:
+the whole plumbing layer visible on every turn — budget blocking, context packing, compression, a
+deterministic gate that refuses a prompt before it leaves, record/replay, and a tamper-evident audit
+chain. **All seven libraries, live in one UI.** Open it in the cloud with one click — in Codespaces
+it **auto-starts** on the forwarded port 7860 — or run it locally:
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/cendorhq/cendor-cookbook?quickstart=1)
 
@@ -75,7 +76,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 
 | Recipe | Category | What it proves | Libraries | Offline |
 |---|---|---|---|---|
-| [**chat-playground**](recipes/apps/chat-playground/) | **app** | Every library live in one chat UI — the plumbing made visible per turn | `core` `tokenguard` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
+| [**chat-playground**](recipes/apps/chat-playground/) | **app** | All **seven** libraries live in one chat UI — the plumbing made visible per turn | `core` `tokenguard` `contextkit` `squeeze` `guardrails` `cassette` `acttrace` | ✓ |
 | [**m365-custom-engine-py**](recipes/agents/m365-custom-engine-py/) | **agent** | Govern a Microsoft 365 Agents SDK **custom engine agent**: session cap in `TurnState`, gates on the Activity, evidence per turn, and the whole agent replayed offline for `$0` CI | `core` `tokenguard` `guardrails` `contextkit` `squeeze` `cassette` `acttrace` | ✓ |
 | [tokenguard](recipes/quickstarts/tokenguard/) | quickstart | Block a runaway loop *before* it overspends (pre-flight cap) | `core` `tokenguard` | ✓ |
 | [contextkit](recipes/quickstarts/contextkit/) | quickstart | Fit a prompt to budget with a kept/shrunk/dropped receipt | `core` `contextkit` | ✓ |

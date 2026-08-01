@@ -245,8 +245,14 @@ jobs:
 
   apps:
     # The chat-playground app. Installs ONLY the `apps` group (gradio + provider SDKs) so a Gradio
-    # breaking release turns just this cell red — never the recipes' jobs. Smoke-tests that the app
-    # imports and the theme constructs, then runs the offline plumbing tests (no UI e2e, no server).
+    # breaking release turns just this cell red — never the recipes' jobs.
+    #
+    # The app was split into modules on 2026-08-01 (config · session · engine · panels · ui, with a
+    # thin app.py). Two smoke steps rather than one, because they fail differently:
+    #   * the ENGINE step imports the pipeline with NO gradio installed. It is the gate on the whole
+    #     point of the split — if someone re-couples the turn logic to the UI, the base env cannot
+    #     import it and this step goes red while the Blocks step below stays green.
+    #   * the UI step constructs the real Blocks, which is what the devcontainer's auto-start does.
     strategy:
       fail-fast: false
       matrix:
@@ -257,7 +263,38 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: import app + construct theme (smoke)
+      - run: uv sync --python ${{ matrix.python }}
+      - name: the engine imports and runs a turn with gradio UNIMPORTABLE
+        # `find_spec('gradio') is None` would be a check that only works when the base env happens
+        # not to carry gradio — green for the wrong reason on a developer machine that ran
+        # `uv sync --group apps` earlier. Blocking the import outright is the same assertion with
+        # no dependency on what is installed, and it fails loudly the moment engine/panels reach
+        # for the UI.
+        run: |
+          uv run --python ${{ matrix.python }} python -c "
+          import sys; sys.path.insert(0, 'recipes/apps/chat-playground')
+          class NoGradio:
+              def find_module(self, name, path=None): return self.find_spec(name, path)
+              def find_spec(self, name, path=None, target=None):
+                  if name == 'gradio' or name.startswith('gradio.'):
+                      raise ImportError('gradio is deliberately unimportable in this step')
+                  return None
+          sys.meta_path.insert(0, NoGradio())
+          try:
+              import gradio  # noqa: F401
+          except ImportError:
+              pass
+          else:
+              raise SystemExit('the import block did not work — this step would prove nothing')
+          import engine, config, session as s
+          sess = s.new_session()
+          det = engine.detect(sess, 'I was double charged')
+          r = engine.run_turn(sess, 'I was double charged', det['safe_text'], 'Demo', 'OpenAI', '', 0.5, 'block')
+          assert r['reply'], 'the offline turn produced no reply'
+          assert sess.events and sess.events[-1]['cost'] != '0', 'the turn was not priced'
+          import panels; assert 'hash-chain entries' in panels.audit_panel(sess)
+          print('engine smoke OK (gradio blocked):', sess.events[-1])"
+      - name: build the real Blocks (what the devcontainer auto-starts)
         run: |
           uv run --python ${{ matrix.python }} --group apps python -c "
           import sys; sys.path.insert(0, 'recipes/apps/chat-playground')
