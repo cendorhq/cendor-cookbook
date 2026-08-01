@@ -178,6 +178,14 @@ jobs:
         run: |
           uv run --python ${{ matrix.python }} --group agents-m365 \
             python recipes/agents/m365-custom-engine-py/main.py
+      # "Does it run in the M365 Agents Playground?" was a question only a human with a browser
+      # could answer, so a broken run instruction sat in the README unnoticed until 2026-08-01.
+      # This drives the two Activities the Playground sends (conversationUpdate, then message)
+      # against the real endpoint and asserts a governed reply with its envelope.
+      - name: the Playground-shaped smoke
+        run: |
+          uv run --python ${{ matrix.python }} --group agents-m365 \
+            python recipes/agents/m365-custom-engine-py/smoke.py
       - name: pytest the agents recipes
         run: |
           uv run --python ${{ matrix.python }} --group agents-m365 \

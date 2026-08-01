@@ -42,3 +42,9 @@ uv.lock
 # are generated artifacts, not fixtures. (Committed test fixtures live under a
 # recipe's own fixtures/ dir and are added explicitly.)
 **/_recordings/
+
+# Audit chains written by the agent recipes' `serve.py` / `serve.mjs` when a reader drives them
+# from the M365 Agents Playground. They are per-run evidence, not fixtures — and without this rule
+# following the recipe's own runbook dirties the tree.
+chain.jsonl
+**/chain-*.jsonl

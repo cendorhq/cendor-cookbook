@@ -76,6 +76,11 @@ frameworks-llamaindex = [
 # Agent-host recipes (recipes/agents/): the agent runs inside somebody else's HOST process, so the
 # host SDK itself is the dependency. Own group, own upper bound — the Microsoft 365 Agents SDK moves
 # fast and a breaking release must turn only this cell red.
+# Verified against the **M365 Agents Playground 0.2.28** on 2026-08-01: the agent starts, the
+# Playground's conversationUpdate + message Activities are accepted (HTTP 202 — the Bot Framework
+# protocol answers out-of-band on the connector, not in the response body), and the governed reply
+# comes back. The floor is >=1.2 because that is where the hosting package's aiohttp entry point
+# (`start_agent_process`) settled; the <2 ceiling keeps a breaking Microsoft release in this cell.
 agents-m365 = [
   "microsoft-agents-hosting-aiohttp>=1.2,<2",
 ]

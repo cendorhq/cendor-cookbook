@@ -65,12 +65,40 @@ return instrument(AsyncOpenAI(
 Nothing else changes. `instrument()` detection is structural, not name-based.
 
 **Driving it interactively** — the same endpoint, from the M365 Agents Playground (local, anonymous,
-no tenant):
+no tenant). Verified end to end against **`@microsoft/m365agentsplayground` 0.2.28** on 2026-08-01:
+the agent answers in the Playground UI.
 
 ```bash
 npm i -g @microsoft/m365agentsplayground        # or: winget install agentsplayground
-python -c "import agent; agent.serve(agent.GovernedAgent(audit_path='chain.jsonl'))"
+
+# terminal 1 — the agent. Note BOTH the `cd` and the `uv run --group agents-m365`.
+cd recipes/agents/m365-custom-engine-py
+uv run --group agents-m365 python -c \
+  "import agent; agent.serve(agent.GovernedAgent(audit_path='chain.jsonl'))"
+
+# terminal 2 — the Playground, pointed at it
 agentsplayground -e "http://localhost:3978/api/messages" -c emulator
+```
+
+> ⚠️ **Both halves of that first command matter, and getting either wrong looks like "the recipe
+> doesn't run".** This block used to say plain `python …` with no `cd`, which is the only command in
+> this repo that skips the project's toolchain. Measured, verbatim, on a clean shell:
+>
+> | What you type | What you get |
+> |---|---|
+> | `python -c "import agent; …"` | `ModuleNotFoundError: No module named 'cendor.acttrace'` — bare `python` is the system interpreter, not the project venv |
+> | the right command from the repo root | `ModuleNotFoundError: No module named 'agent'` — `python -c` puts the *current directory* on `sys.path`, and `agent.py` lives in this folder |
+> | port 3978 already in use | a raw `OSError: [Errno 10048] … bind` traceback from aiohttp |
+>
+> Prefer not to remember any of that? `uv run --group agents-m365 python
+> recipes/agents/m365-custom-engine-py/serve.py` does the `cd` for you, says which port it is on,
+> and turns a busy port into one readable line.
+
+Or run the scripted smoke instead of clicking — it starts the agent, sends the Playground's own
+handshake and a message Activity, and asserts a governed reply came back:
+
+```bash
+uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/smoke.py
 ```
 
 ## The wrap map
