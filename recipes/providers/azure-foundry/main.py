@@ -218,8 +218,10 @@ def main() -> None:
     base = prices.explain(BASE_MODEL)
     print(f"explain({BASE_MODEL!r})")
     print(f"  {base.summary()}")
-    print(f"  rate came from: {base.row_source or base.source_name} as of "
-          f"{base.row_asof or base.snapshot_date or 'undated'}")
+    print(
+        f"  rate came from: {base.row_source or base.source_name} as of "
+        f"{base.row_asof or base.snapshot_date or 'undated'}"
+    )
 
     # To pull today's list prices instead of the bundled snapshot, one call — a public, keyless GET:
     #     prices.refresh()                                  # the cendor-prices feed
@@ -271,7 +273,7 @@ def main() -> None:
     assert gated, "the input gate did not fire on the Foundry client"
     assert blocked, "the USD cap still did not bind AFTER registering the deployment"
     assert seen[-1].cost and seen[-1].cost.amount > 0, "the registered deployment is still $0"
-    assert prices.explain(DEPLOYMENT).registered, "explain() should report the registration in effect"
+    assert prices.explain(DEPLOYMENT).registered, "explain() should report the registration"
     assert prices.explain("no-such-model-ever").how == "unpriced", "explain() must never raise"
     assert extra == 0, "a replayed deployment call must not reach the provider"
     assert ok is True, "the audit chain failed verify()"
