@@ -59,49 +59,40 @@ documented in [`README.md`](README.md); do not "close the gap".
    promise is on you. A README is not executable, and one that names a switch the code never reads
    fails nothing.
 
-2. **Python 3.11 AND 3.13 are in the CI matrix, always.** 3.11 is the floor (`requires-python`), 3.13
-   the newest supported. A recipe green only on one proves nothing about the other, and the two ends
-   are where the differences live.
+2. **Python 3.11 AND 3.13 are in the CI matrix, always.** 3.11 is the project's `requires-python`
+   floor; 3.13 is the other end. A recipe green on only one proves nothing about the other.
 
-3. **One `uv` project, one lockfile, per-category dependency-groups** — the *opposite* choice from
-   the TypeScript twin's per-recipe `npm install`, and deliberately so. A `package.json` per recipe
-   proves a copy-pasteable manifest resolves; Python has no such artifact to prove, and 54 virtualenvs
-   would be minutes of CI for nothing. Instead every framework/provider SDK lives in its own
-   `[dependency-groups]` entry **with an upper bound**, so one framework's breaking release turns
-   only its own matrix cell red. `[tool.uv] package = false` — this project is never built or
+3. **One `uv` project; framework and provider SDKs live in per-category `[dependency-groups]`, each
+   with an upper bound.** The reason is in `pyproject.toml` itself: so CI can install (and break)
+   them in isolation, and one framework's major/minor bump turns **only its own matrix cell** red
+   instead of the whole repo's CI. `[tool.uv] package = false` — this project is never built or
    published.
 
-4. **Never create a `cendor/__init__.py`, anywhere, for any reason.** `cendor.*` is a PEP 420
-   namespace package shared by every published library. A stray `__init__.py` in a recipe (or a
-   scratch file that shadows the name) silently makes exactly one distribution importable and hides
-   the rest. This is the org's oldest non-negotiable and it applies to a consumer repo too.
+4. **Money is `Decimal`, never a float.** `call.cost.amount` is a `Decimal`; keep it one. Format at
+   the edge, compare as `Decimal`, round-trip through storage as a **string**.
 
-5. **Money is `Decimal`, never a float.** `call.cost.amount` is a `Decimal`; keep it one. Format at
-   the edge, compare as `Decimal`, and round-trip through storage as a **string**.
+5. **Recipes compose the libraries only through the documented seams** — `instrument()`, the
+   `cendor.core` bus, the protocols. The libraries never import each other, and a recipe that
+   reaches around that is teaching a shape the stack does not have.
 
-6. **No tool→tool imports.** Recipes compose the libraries only through the documented seams —
-   `instrument()`, the `cendor.core` bus, the protocols. Never reach into one package from another;
-   that is the property the whole stack is built on and a recipe that breaks it teaches the wrong
-   thing.
-
-7. **Honest claims.** Any cost printed comes from `prices.estimate(...)` on stated token counts. A
+6. **Honest claims.** Any cost printed comes from `prices.estimate(...)` on stated token counts. A
    framework *works alongside* Cendor; it is never an "official integration". `acttrace` produces
-   **evidence to support** a compliance case, not a guarantee — and never a regulatory-compliance
-   claim.
+   **evidence to support** a compliance case — never a compliance guarantee.
    ⚠️ **A number in a README is only true on the shelf it was measured against.** Measured
    2026-08-02: `cendor-core` 1.20.0 made a mapped `refresh(source=…)` drop rows it cannot price, and
    `providers/bedrock`'s live aws count moved 76 → 71 the same day it was written down. Re-run any
    recipe whose README quotes a live figure after **any** core release, not only one you think is
    related.
 
-8. **A TypeScript-only capability gets a documented omission, never a fake Python sample.** The
-   parity matrix (`cendor-libs/docs/languages.md`) is the contract. The reverse also holds: this
-   repo carries Python-only ground (Presidio NER, cassette `local_embedding_scorer`, the Gradio app),
-   and the twin documents those as omissions rather than faking them.
-
-9. **The 20 notebooks are EXECUTED in CI, not linted.** `pytest --nbmake` starts a kernel and runs
+7. **The 20 notebooks are EXECUTED in CI, not linted.** `pytest --nbmake` starts a kernel and runs
    every cell top to bottom, failing on the first exception. A notebook that is only ever read rots
    into a screenshot of code that used to work.
+
+8. **A TypeScript-only capability gets a documented omission, never a fake Python sample** — and the
+   reverse, which is the case that actually occurs here: `apps/chat-playground` is Gradio and has no
+   twin, and `libs/cassette-semantic-drift` uses `local_embedding_scorer` (model2vec), which has no
+   JS port. Say so; do not fake the other side. The parity matrix
+   (`cendor-libs/docs/languages.md`) is the contract.
 
 ### CI shape, and the two holes in it
 
