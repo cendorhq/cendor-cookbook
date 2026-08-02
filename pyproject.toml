@@ -26,7 +26,7 @@ dependencies = [
   # exactly one of them took effect, silently, depending on registration order.
   # >=1.19.0 for the providers/ recipes: prices.explain(model) — the visibility half of the price
   # story. Before it, showing WHERE a rate came from meant reading the library's source.
-  "cendor-core>=1.19.0,<2.0",
+  "cendor-core>=1.19.1,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
