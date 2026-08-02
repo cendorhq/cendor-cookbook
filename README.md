@@ -32,7 +32,7 @@ up for and nothing to spend.
 > has one unambiguous toolchain; a single repo carrying a root `pyproject.toml` *and* scattered
 > `package.json` files gives a devcontainer nothing definite to provision.
 >
-> **Since 2026-08-01 the two trees are at parity: 52 of the 53 recipes here have a TypeScript twin.**
+> **Since 2026-08-01 the two trees are at parity: 54 of the 55 recipes here have a TypeScript twin.**
 > The exception is [`apps/chat-playground`](recipes/apps/chat-playground/), which is a **Gradio** app
 > — Gradio is Python-only, so a TypeScript port would be a *different application* wearing a twin's
 > folder name. Four folder names differ deliberately: `quickstarts/core`, `sdk/governed-agent` and
@@ -120,7 +120,8 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [langchain](recipes/frameworks/langchain/) | framework · Live swap | Cost + audit without changing LangChain code (+LangGraph) | `core` `tokenguard` `acttrace` | ✓ |
 | [openai-agents-sdk](recipes/frameworks/openai-agents-sdk/) | framework · RECORD | Budget + audit a loop the Agents SDK fully owns | `core` `tokenguard` `acttrace` | ✓ |
 | [llamaindex](recipes/frameworks/llamaindex/) | framework | Pack RAG retrieval to a token budget, reversibly | `core` `contextkit` `squeeze` | ✓ |
-| [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
+| [azure-foundry-otel](recipes/frameworks/azure-foundry-otel/) | framework | Budget + audit calls your process never made (ingest OTel spans) | `core` `tokenguard` `acttrace` | ✓ |
+| [azure-foundry-otel-export](recipes/frameworks/azure-foundry-otel-export/) | framework | Foundry governance exported as ordinary OTel spans, refusals included | `core` `tokenguard` `acttrace` | ✓ |
 | [otel-export](recipes/observability/otel-export/) | observability | Stream spend + the audit trail + a budget block to any OTel backend (Azure Monitor / CloudWatch / Datadog); the file stays the evidence | `core` `tokenguard` `acttrace` | ✓ |
 | [batch-ingest](recipes/observability/batch-ingest/) | observability | Account for a completed Batch API job's spend after the fact (`otel.ingest` per result line) — no pre-flight possible, but the accounting is | `core` `tokenguard` | ✓ |
 | [pytest-cassette](recipes/testing/pytest-cassette/) | testing | An offline agent test suite that runs on a plane | `core` `cassette` | ✓ |
@@ -161,6 +162,7 @@ recipes each need their own dependency group so a breaking release in one can't 
 | frameworks · openai-agents-sdk | `uv run --group frameworks-agents python recipes/frameworks/openai-agents-sdk/main.py` |
 | frameworks · llamaindex | `uv run --group frameworks-llamaindex python recipes/frameworks/llamaindex/main.py` |
 | frameworks · azure-foundry-otel | `uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel/main.py` |
+| frameworks · azure-foundry-otel-export | `uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel-export/main.py` |
 | bridges · openai-agents-guardrail | `uv run --group frameworks-agents python recipes/bridges/openai-agents-guardrail/main.py` |
 | bridges · claude-agent-pretooluse | `uv run --group frameworks-claude-agent python recipes/bridges/claude-agent-pretooluse/main.py` |
 | bridges · mcp-tool-gating | `uv run --group frameworks-mcp python recipes/bridges/mcp-tool-gating/main.py` |

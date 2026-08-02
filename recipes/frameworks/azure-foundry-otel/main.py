@@ -5,8 +5,14 @@ agent loop server-side; your client never sees the calls. But it emits OpenTelem
 spans. Forward each span's attributes to `otel.ingest()` and the call lands on the same cendor bus
 — so tokenguard budgets it and acttrace records it, exactly as if you'd made the call yourself.
 
+⚠️ There is no client to `instrument()` here, and that is the point. `instrument()` wraps a client
+you hold; in a managed runtime you hold nothing. `otel.ingest()` is the other adoption point —
+telemetry in rather than a call intercepted. If you *do* hold the client, you want `instrument()`
+and not this: see `frameworks/azure-foundry-otel-export`, which holds one and sends governance the
+other way (spans OUT to your backend).
+
 Fully offline by nature (in-memory spans; no Azure account, no collector). Run:
-  uv run python recipes/frameworks/azure-foundry-otel/main.py
+  uv run --group frameworks-otel python recipes/frameworks/azure-foundry-otel/main.py
 """
 
 from cendor.acttrace import AuditLog, verify

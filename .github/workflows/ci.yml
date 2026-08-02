@@ -70,6 +70,10 @@ jobs:
   frameworks:
     # One matrix entry per framework, each installing ONLY its own dependency-group, so a
     # breaking release in one framework turns just its cell red — never the whole matrix.
+    #
+    # ⚠️ THIS MATRIX ENUMERATES. A new recipe under `recipes/frameworks/` is NOT covered until it has
+    # a row here, and nothing will remind you — unlike `quickstarts`/`providers`/`libs`, which loop
+    # over their directory. `azure-foundry-otel-export` was added on 2026-08-02 and needed this line.
     strategy:
       fail-fast: false
       matrix:
@@ -79,6 +83,7 @@ jobs:
           - { name: openai-agents-sdk, group: frameworks-agents }
           - { name: llamaindex, group: frameworks-llamaindex }
           - { name: azure-foundry-otel, group: frameworks-otel }
+          - { name: azure-foundry-otel-export, group: frameworks-otel }
     runs-on: ubuntu-latest
     defaults:
       run:
