@@ -103,7 +103,7 @@ from `modelsdev` as of 2026-03-13; nobody wrote a line of code for it, the looku
 `LIVE=1` adds Amazon's own catalog, and it needs **no AWS credentials** at all:
 
 ```text
-aws      refresh(source='aws', region='us-east-1') -> True, 850 rows -> 76, as of 2026-07-29   (no AWS credentials)
+aws      refresh(source='aws', region='us-east-1') -> True, 850 rows -> 71, as of 2026-07-29   (no AWS credentials)
          confirms : us.amazon.nova-lite-v1:0 (via nova-lite): cached=1.50E-8 input=6.00E-8 output=2.400E-7 — normalized, from aws as of 2026-07-29
                     == the input=0.06 / output=0.24 per 1M typed in above
          REPLACED : eu.anthropic.claude-sonnet-4-6-v1:0 was 'normalized', is now 'unpriced'
@@ -118,13 +118,19 @@ Three things there, and the middle one is the trap:
    `input=6.00E-8 / output=2.400E-7` — the same `input=0.06, output=0.24` per 1M written into
    `register_model_price` above. First-party confirmation, not a coincidence.
 
-2. ⚠️ **`refresh(source=…)` REPLACES the table. It does not merge into it.** 850 rows became **76**,
+2. ⚠️ **`refresh(source=…)` REPLACES the table. It does not merge into it.** 850 rows became **71**,
    and `eu.anthropic.claude-sonnet-4-6-v1:0` — which the bundled snapshot priced happily — came back
    **unpriced**. A first-party catalog is authoritative *and narrow*: Amazon publishes what Amazon
    sells, in one region, and its Claude coverage stops at `claude-sonnet-4`. If you reach for a
    named source *because* it is the most trustworthy one, expect to lose rows you had. **A bare
    `prices.refresh()` is the one that reconciles first-party catalogs with the aggregators**, and it
    is the default for exactly this reason.
+
+   ⚠️ **That 71 was 76 before `cendor-core` 1.20.0**, and the difference is the point: a mapped
+   `refresh(source=…)` now DROPS rows it cannot price, mirroring the feed's own rule. Amazon lists
+   `claude-2-0`, `claude-2-1`, `claude-3-haiku`, `claude-3-sonnet` and `claude-instant` with an input
+   meter and no output meter — under the old reading a missing output rate meant **free output**, so
+   those five priced a chat model at a fraction of its real cost. Absent is the honest answer.
 
 3. **The registration survived.** `eu.amazon.nova-2-lite-v1:0` is still `registered` after the
    refresh — the precedence contract working, not the fetch failing.

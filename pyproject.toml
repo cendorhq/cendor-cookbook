@@ -32,7 +32,7 @@ dependencies = [
   # in the bundled snapshot were affected (claude-3-haiku, claude-3-sonnet, gpt-image-2); twelve
   # more are now honestly absent rather than free. A recipe that prints a cost for one of those on
   # an older core prints a wrong number and nothing says so.
-  "cendor-core>=1.19.2,<2.0",
+  "cendor-core>=1.20.0,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
