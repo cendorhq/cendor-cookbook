@@ -50,6 +50,11 @@ from cendor.guardrails import GuardrailTripped, install, rules, uninstall
 from cendor.tokenguard import BudgetExceeded, budget, reset
 
 MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "eu.amazon.nova-2-lite-v1:0")
+#: A CURRENT Bedrock Claude id. Unlike MODEL_ID it prices with no registration at all, because the
+#: lookup strips the region prefix, the vendor prefix and `-v1:0` down to a base the table knows.
+PRICED_ID = "eu.anthropic.claude-sonnet-4-6-v1:0"
+#: `refresh(source="aws")` is per region, like Amazon's own price files.
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 _provider_calls = {"n": 0}
 
 
@@ -156,6 +161,58 @@ def main() -> None:
         ask(client)
     priced_cost = seen[-1].cost
     print(f"priced   ${priced_cost.amount}   (same id, same call, now costed)")
+
+    # 3 — and now SHOW where each rate came from. `prices.explain(id)` is the difference between
+    #     "the cost is 0.0000622200" and "the cost is 0.0000622200 because I typed that rate in".
+    #     Two different answers on the same table, which is the whole Bedrock pricing story:
+    mine = prices.explain(MODEL_ID)
+    theirs = prices.explain(PRICED_ID)
+    print(f"\nexplain  {MODEL_ID}")
+    print(f"         {mine.summary()}")
+    print(f"         how={mine.how!r} registered={mine.registered}  <- YOUR line, not a table")
+    print(f"explain  {PRICED_ID}")
+    print(f"         {theirs.summary()}")
+    print(f"         how={theirs.how!r} registered={theirs.registered}  <- normalized, no code")
+
+    # 4 — you may not have to type Amazon's rate card in at all. `refresh(source="aws")` reads
+    #     **Amazon's own** Bedrock price files: a static, public JSON document that needs NO AWS
+    #     credentials — you are pricing a model, not calling one. Keyless, so this is a `LIVE=1`
+    #     section rather than a `RECORD=1` one: nothing to record, no key to leak.
+    #
+    #     ⚠️ TWO THINGS THAT LOOK LIKE FAILURES AND ARE NOT, both printed below:
+    #
+    #     (a) `refresh(source=…)` REPLACES the table; it does not merge into it. A first-party
+    #         catalog is authoritative AND narrow, so a model the bundled snapshot priced can come
+    #         back UNPRICED after a refresh onto a smaller source. That is the trade, stated: a bare
+    #         `refresh()` (the cendor-prices feed) is the one that reconciles first-party catalogs
+    #         with the aggregators, and it is the default for exactly this reason.
+    #     (b) `MODEL_ID` stays registered. A registration outranks every table forever — which is
+    #         the precedence contract working, not the fetch failing.
+    if os.getenv("LIVE") == "1":
+        before_rows = len(prices.models())
+        was = prices.explain(PRICED_ID).how
+        fetched = prices.refresh(source="aws", region=AWS_REGION)
+        print(
+            f"\naws      refresh(source='aws', region={AWS_REGION!r}) -> {fetched}, "
+            f"{before_rows} rows -> {len(prices.models())}, as of {prices.snapshot_date()}"
+            f"   (no AWS credentials)"
+        )
+        # Amazon's own file, on the model this recipe hand-typed a rate for. Same numbers.
+        theirs_now = prices.explain("us.amazon.nova-lite-v1:0")
+        print(f"         confirms : {theirs_now.summary()}")
+        print("                    == the input=0.06 / output=0.24 per 1M typed in above")
+        now = prices.explain(PRICED_ID)
+        print(f"         REPLACED : {PRICED_ID} was {was!r}, is now {now.how!r}")
+        print("                    a first-party catalog is authoritative AND narrow; the bare")
+        print("                    refresh() feed is the one that reconciles them")
+        print(
+            f"         yours    : {MODEL_ID} still registered={prices.explain(MODEL_ID).registered}"
+        )
+    else:
+        print(
+            "\naws      set LIVE=1 to price Bedrock ids from Amazon's own public price files "
+            "(keyless): prices.refresh(source='aws', region=…)"
+        )
 
     # (4) record — replay the same Converse call with the provider unplugged. Bedrock is no
     #     different here: cassette sits on the same seam, so nothing in this block is boto3-aware.

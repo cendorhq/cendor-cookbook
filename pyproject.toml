@@ -26,7 +26,13 @@ dependencies = [
   # exactly one of them took effect, silently, depending on registration order.
   # >=1.19.0 for the providers/ recipes: prices.explain(model) — the visibility half of the price
   # story. Before it, showing WHERE a rate came from meant reading the library's source.
-  "cendor-core>=1.19.1,<2.0",
+  # >=1.19.2 is NOT cosmetic: 1.19.0/1.19.1 read an ABSENT output rate as $0, which is right for an
+  # embedding and wrong for a chat model whose rate never parsed — `estimate()` then reported the
+  # output side as a fact of $0.00 and a USD cap under-counted by the whole output cost. Three rows
+  # in the bundled snapshot were affected (claude-3-haiku, claude-3-sonnet, gpt-image-2); twelve
+  # more are now honestly absent rather than free. A recipe that prints a cost for one of those on
+  # an older core prints a wrong number and nothing says so.
+  "cendor-core>=1.19.2,<2.0",
   # The guardrails recipes need the gate + its acttrace capture. >=1.2 for load_policy (the
   # guardrails-policy recipe); acttrace >=1.4 captures the decision `metadata` (policy_hash /
   # policy_version) into the chain. >=1.4 for rules.intent / custom_category (the intent-gate +
@@ -37,7 +43,11 @@ dependencies = [
   # legally land on 1.6.1 and reproduce the post-flight BudgetExceeded message the bedrock recipe
   # exists to teach against ("spent $X > cap $None" for a TOKEN cap). >=1.6.3 also carries the pin
   # that `on_exceed="break"` cuts a **Gemini** stream (it could not, before core 1.15 captured one).
-  "cendor-tokenguard>=1.6.3,<2.0",
+  # >=1.8.0 for `libs/prices-live-and-explain`: `StalePriceTableWarning` — a USD budget estimating
+  # from a table older than 45 days says so, once per process. ⚠️ The floor matters more than it
+  # looks: it sat at >=1.6.3 through the live-pricing release, so `uv.lock` legally resolved 1.7.0
+  # and the warning class was not even importable while the docs said it shipped.
+  "cendor-tokenguard>=1.8.0,<2.0",
 ]
 
 [tool.uv]

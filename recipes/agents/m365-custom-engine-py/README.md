@@ -101,6 +101,78 @@ handshake and a message Activity, and asserts a governed reply came back:
 uv run --group agents-m365 python recipes/agents/m365-custom-engine-py/smoke.py
 ```
 
+## What the user actually sees: the governance card
+
+⚠️ **The envelope is invisible in the Playground's chat pane, and that is measured, not assumed.**
+Playground 0.2.28's UI projection (`convertMessage()`) forwards a fixed field set and reads
+`channelData` only for `feedbackLoopEnabled`. The envelope is on the wire — the Log Panel's raw
+Activity JSON has it — and a person looking at the chat sees nothing. `attachments`, by contrast,
+**are** forwarded and rendered.
+
+So the recipe ships a governance **Adaptive Card**, opt-in, off by default:
+
+```bash
+/cards on            # in the chat, any channel
+M365_CARDS=1 …       # or at startup
+```
+
+It is shaped like [cendor.ai/try](https://cendor.ai/try): **one row per library, saying what that
+library did on this turn, in words.** A FactSet of raw keys is a JSON dump with better spacing; what
+a reviewer needs to read is *"tokenguard refused this before any call, and here is the number it
+refused on"*.
+
+```text
+  ✅  governed · answered
+  Answered in 1 model call for $0.0000109500. This conversation has used $0.0000109500 of $5.00.
+
+  Bus feed     core        detected openai · gpt-4o-mini from the client's shape
+                           41 in / 8 out — the provider's count
+                           one trace id for the turn: cookbook-m365:0fd4793a-…
+  Budget       tokenguard  this turn $0.0000109500 (Decimal, never a float)
+                           session $0.0000109500 of $5.00, held in the host's own TurnState
+                           this turn's fuse: $0.05 (the remainder)
+                           rate from azure as of 2026-07-01
+  Receipt      contextkit  packed 2 message(s) into a 1,200-token window
+  Gate         guardrails  in and out: nothing to act on
+  Audit        acttrace    6 hash-chained entries
+                           head a6d9d0ffbaa1be8b… — verify() re-walks the file
+```
+
+…and, more importantly, when governance refuses:
+
+```text
+  ⛔  tokenguard · refused before the call
+  Refused before any model call: the estimate was $0.0000313500 against $0.000001 left for this
+  turn. Zero provider calls, $0 spent. The estimate reserves the full output allowance, so this can
+  refuse while the session ledger still shows headroom.
+
+  Bus feed     core        no model call was made — nothing reached the provider
+```
+
+**Four decisions in that card worth copying:**
+
+1. **A refusal explains itself.** "The agent hit an error" is the failure this whole recipe exists
+   to prevent, and a bare *"I can't do that"* is only marginally better. The card names the library,
+   the number it refused on, and what it cost you ($0).
+2. **The pre-flight refusal must NOT say "you reached your cap."** The estimate reserves the full
+   output allowance — measured 3.04× over-reservation on one real turn — so it can refuse while the
+   ledger still shows headroom. The **session-cap** refusal is a different event and does say
+   exactly that. `test_m365_agent.py` asserts both directions, and the second is the negative
+   control for the first.
+3. **The money carries its provenance.** `rate from azure as of 2026-07-01` comes from
+   `prices.explain(MODEL)` (`cendor-core` ≥ 1.19). A USD cap is only as good as the rate under it,
+   and an unpriced model would print **UNPRICED — every USD guard on this turn is a silent no-op**
+   instead of a comfortable-looking `$0`. See
+   [`libs/prices-live-and-explain`](../../libs/prices-live-and-explain/).
+4. **The card is styling; governance is not.** Plain text stays the canonical reply and the card is
+   off by default, so nothing enforced depends on a channel rendering an attachment. `/cards off`
+   is asserted to remove the attachment entirely.
+
+The numbers on the card are the **same turn's** envelope values, not a second computation of them —
+the test compares them against that reply's own `channelData.cendor`, keyed on the per-turn
+`trace_id`. (Comparing against a *different* turn's would have passed for the wrong reason: the
+offline fake is deterministic, so two turns cost the same.)
+
 ## The wrap map
 
 | # | Where | Library | What it does in the handler |

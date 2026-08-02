@@ -34,6 +34,9 @@ no-op on the next.
 # Offline (fake boto3 bedrock-runtime shape) — what CI runs, no credentials:
 uv run python recipes/providers/bedrock/main.py
 
+# Add Amazon's own published price files (keyless — you are pricing a model, not calling one):
+LIVE=1 uv run python recipes/providers/bedrock/main.py
+
 # Against real Bedrock (records a redacted cassette):
 export AWS_ACCESS_KEY_ID="…" AWS_SECRET_ACCESS_KEY="…"   # or your usual AWS credential chain
 export AWS_REGION="eu-north-1"
@@ -62,6 +65,15 @@ cost     : $None   <- no price row for this id
 tokens=  budget exceeded: used 1420 tokens > cap 1000 tokens after 1 call(s); last model=eu.amazon.nova-2-lite-v1:0. on_exceed='block' refused nothing here: the pre-flight estimate fitted the cap and the call's settled usage did not, so the cumulative post-flight check raised. Reserve more output (output_reserve=/reasoning_reserve=) or add on_exceed='clamp' to cap the call server-side.
 usd=     pre-flight block: projected $0.0000622200 would exceed cap $0.00001 (model=eu.amazon.nova-2-lite-v1:0)
 priced   $0.0001428000   (same id, same call, now costed)
+
+explain  eu.amazon.nova-2-lite-v1:0
+         eu.amazon.nova-2-lite-v1:0: input=6E-8 output=2.4E-7 — registered, from bundled as of 2026-08-02
+         how='registered' registered=True  <- YOUR line, not a table
+explain  eu.anthropic.claude-sonnet-4-6-v1:0
+         eu.anthropic.claude-sonnet-4-6-v1:0 (via claude-sonnet-4-6): cache_write=0.00000375 cached=3E-7 input=0.000003 output=0.000015 — normalized, from modelsdev as of 2026-03-13
+         how='normalized' registered=False  <- normalized, no code
+
+aws      set LIVE=1 to price Bedrock ids from Amazon's own public price files (keyless): prices.refresh(source='aws', region=…)
 cassette replayed 1 call, 0 provider call(s), $0
 verify() True - ok: 5 entries, head 6dc282adbcdf…
 ```
@@ -79,6 +91,46 @@ Read the three enforcement lines as a set:
 - **`priced`** — the same id and the same call, now costed. The rates are **yours to supply**
   (`input=0.06, output=0.24` USD per 1M is Nova-2-Lite-shaped); cendor never guesses a marketplace
   price.
+
+## `explain()`, and Amazon's own numbers
+
+The two `explain` blocks are the whole Bedrock pricing story in four values. One id is `registered`
+— a rate **you** typed in, which outranks every table forever. The other is `normalized` and came
+from `modelsdev` as of 2026-03-13; nobody wrote a line of code for it, the lookup stripped `eu.` and
+`-v1:0` down to a base the table knows. Same table, same call, two completely different provenances
+— which is precisely what a cost review will ask about.
+
+`LIVE=1` adds Amazon's own catalog, and it needs **no AWS credentials** at all:
+
+```text
+aws      refresh(source='aws', region='us-east-1') -> True, 850 rows -> 76, as of 2026-07-29   (no AWS credentials)
+         confirms : us.amazon.nova-lite-v1:0 (via nova-lite): cached=1.50E-8 input=6.00E-8 output=2.400E-7 — normalized, from aws as of 2026-07-29
+                    == the input=0.06 / output=0.24 per 1M typed in above
+         REPLACED : eu.anthropic.claude-sonnet-4-6-v1:0 was 'normalized', is now 'unpriced'
+                    a first-party catalog is authoritative AND narrow; the bare
+                    refresh() feed is the one that reconciles them
+         yours    : eu.amazon.nova-2-lite-v1:0 still registered=True
+```
+
+Three things there, and the middle one is the trap:
+
+1. **Amazon's file agrees with the rate this recipe hand-types.** `nova-lite` comes back at
+   `input=6.00E-8 / output=2.400E-7` — the same `input=0.06, output=0.24` per 1M written into
+   `register_model_price` above. First-party confirmation, not a coincidence.
+
+2. ⚠️ **`refresh(source=…)` REPLACES the table. It does not merge into it.** 850 rows became **76**,
+   and `eu.anthropic.claude-sonnet-4-6-v1:0` — which the bundled snapshot priced happily — came back
+   **unpriced**. A first-party catalog is authoritative *and narrow*: Amazon publishes what Amazon
+   sells, in one region, and its Claude coverage stops at `claude-sonnet-4`. If you reach for a
+   named source *because* it is the most trustworthy one, expect to lose rows you had. **A bare
+   `prices.refresh()` is the one that reconciles first-party catalogs with the aggregators**, and it
+   is the default for exactly this reason.
+
+3. **The registration survived.** `eu.amazon.nova-2-lite-v1:0` is still `registered` after the
+   refresh — the precedence contract working, not the fetch failing.
+
+Full depth on `explain()`, `save`/`load`, `required=True` and staleness:
+[`libs/prices-live-and-explain`](../../libs/prices-live-and-explain/).
 
 ## Honest limits
 
@@ -119,4 +171,4 @@ open the file and **Run All**.
 > working turns the build red rather than quietly becoming a screenshot of code that used to run.
 
 
-Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · [← all recipes](../../../README.md)
+Libraries: `core`, `tokenguard`, `guardrails`, `cassette`, `acttrace` · Offline ✓ · Live switch: RECORD=1 / LIVE=1 · [← all recipes](../../../README.md)

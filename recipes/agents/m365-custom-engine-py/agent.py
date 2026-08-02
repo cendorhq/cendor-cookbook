@@ -63,7 +63,7 @@ from cendor.guardrails import (
 )
 from cendor.squeeze import compress
 from cendor.tokenguard import BudgetExceeded, budget, track
-from microsoft_agents.activity import Activity, ActivityTypes
+from microsoft_agents.activity import Activity, ActivityTypes, Attachment
 from microsoft_agents.hosting.aiohttp import (
     CloudAdapter,
     jwt_authorization_middleware,
@@ -339,6 +339,9 @@ def install_audit(path: str) -> tuple[AuditLog, Any]:
 class Assembly:
     messages: list[dict]
     compressed: bool = False
+    #: How much smaller the compressed history is, as a whole percent. `None` when nothing was
+    #: compressed. Measured on the real before/after text, not claimed from a target.
+    squeezed_pct: int | None = None
 
 
 def assemble_prompt(*, history: list[dict], user_text: str) -> Assembly:
@@ -346,6 +349,7 @@ def assemble_prompt(*, history: list[dict], user_text: str) -> Assembly:
     ctx.add(Block(content=INSTRUCTIONS, role="system", priority=100, pin=True))
 
     compressed = False
+    pct: int | None = None
     if history:
         blob = "\n".join(f"{m['role']}: {m['content']}" for m in history)
         if len(blob) > 1200:
@@ -358,11 +362,16 @@ def assemble_prompt(*, history: list[dict], user_text: str) -> Assembly:
                 )
             )
             compressed = True
+            # Token-for-token, not character-for-character — the budget is in tokens, so a
+            # character ratio would be a different (and flattering) number.
+            before = tokens.count(blob, MODEL)
+            after = tokens.count(text, MODEL)
+            pct = int(round((1 - after / before) * 100)) if before else None
         else:
             ctx.add(Block(messages=history, priority=50, evict="drop_oldest"))
 
     ctx.add(Block(content=user_text, role="user", priority=90, pin=True))
-    return Assembly(messages=ctx.assemble(), compressed=compressed)
+    return Assembly(messages=ctx.assemble(), compressed=compressed, squeezed_pct=pct)
 
 
 # ───────────────────────────────── (C) the per-conversation cap, held in the host's own TurnState
@@ -463,15 +472,285 @@ class Envelope:
         return {"cendor": {k: v for k, v in self.__dict__.items() if v not in (None, "", [])}}
 
 
-async def reply(context: TurnContext, text: str, envelope: Envelope) -> None:
-    """Plain text plus the envelope — the whole of it.
+# ────────────────────────────────────────────────────── the governance card, the part a USER sees
+#
+# The envelope above is for machines. This is for the person in the chat.
+#
+# ⚠️ WHY A CARD AND NOT `channelData`: measured against M365 Agents Playground 0.2.28 — its UI
+# projection (`convertMessage()`) forwards a fixed field set and reads `channelData` only for
+# `feedbackLoopEnabled`, so the envelope is on the wire and **invisible in the chat pane**. It does
+# survive in the Log Panel's raw Activity JSON. `attachments`, by contrast, ARE forwarded and
+# rendered. So a card is the only way to actually *see* what the libraries did while sitting in
+# front of the Playground — or in Teams, or WebChat.
+#
+# The shape is deliberately the one cendor.ai/try uses: **one row per library, saying what that
+# library did on this turn, in words.** A FactSet of raw keys is a JSON dump with better spacing;
+# what a reviewer needs to read is "tokenguard refused this before any call, and here is the number
+# it refused on". So the card leads with a sentence and then attributes each fact to the tool that
+# produced it.
+#
+# Opt-in, off by default (`M365_CARDS=1`, or `/cards on` in the chat): plain text stays the
+# canonical reply, because a card is channel styling and governance must not depend on styling.
+
+CARDS_DEFAULT = os.environ.get("M365_CARDS") == "1"
+
+
+@dataclass
+class TurnFacts:
+    """Everything the card shows, collected by the handler as the turn happens."""
+
+    governance: str = "ok"
+    provider: str | None = None
+    model: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    model_calls: int = 0
+    cost_usd: Decimal | None = None
+    session_spent_usd: Decimal | None = None
+    session_cap_usd: Decimal | None = None
+    turn_allowance_usd: Decimal | None = None
+    estimate_usd: Decimal | None = None
+    trace_id: str | None = None
+    assembled_messages: int = 0
+    context_budget_tokens: int = CONTEXT_BUDGET_TOKENS
+    squeezed_pct: int | None = None
+    decisions: list[GuardrailDecision] = field(default_factory=list)
+    policy_categories: list[str] = field(default_factory=list)
+    audit_entries: int | None = None
+    audit_head: str | None = None
+    #: Where `MODEL`'s rate came from, from `prices.explain()`. A dollar figure with no provenance
+    #: is the thing a cost review cannot accept, so the card carries the answer rather than the
+    #: number alone.
+    rate_from: str | None = None
+
+
+#: `(container style, headline)` per governance outcome. The styles are Adaptive Card 1.5's own, so
+#: Teams / WebChat / the Playground each render them in their own theme rather than in ours.
+_STATUS = {
+    "ok": ("good", "✅  governed · answered"),
+    "input_blocked": ("attention", "🛑  guardrails · input blocked"),
+    "output_blocked": ("attention", "🛑  guardrails · output blocked"),
+    "policy_blocked": ("attention", "🛑  acttrace · data policy blocked"),
+    "broke_on_budget": ("warning", "✂️  tokenguard · stopped mid-stream"),
+    "preflight_refused": ("warning", "⛔  tokenguard · refused before the call"),
+    "session_cap_reached": ("warning", "⛔  tokenguard · session cap reached"),
+}
+
+
+def _usd(value: Decimal | None) -> str:
+    return "—" if value is None else f"${value}"
+
+
+def _narration(f: TurnFacts) -> str:
+    """One sentence: what happened to this turn, and why. The part people actually read.
+
+    ⚠️ Two of these are worded the way they are because the alternative is a lie. A pre-flight
+    refusal is **not** "you hit your cap" — the estimate over-reserves the full output allowance
+    (measured 3.04x on one real turn), so it can refuse while the ledger still shows headroom. And
+    an output block is **still billed**: the tokens were spent before the gate saw them.
+    """
+    if f.governance == "session_cap_reached":
+        return (
+            f"This conversation has spent {_usd(f.session_spent_usd)} of its "
+            f"{_usd(f.session_cap_usd)} cap, so no model call was made. Nothing was billed."
+        )
+    if f.governance == "preflight_refused":
+        return (
+            f"Refused before any model call: the estimate was {_usd(f.estimate_usd)} against "
+            f"{_usd(f.turn_allowance_usd)} left for this turn. Zero provider calls, $0 spent. "
+            f"The estimate reserves the full output allowance, so this can refuse while the "
+            f"session ledger still shows headroom."
+        )
+    if f.governance == "input_blocked":
+        names = ", ".join(sorted({d.guardrail for d in f.decisions if d.action == "block"}))
+        return (
+            f"Blocked on the way in by {names or 'a guardrail'} — before the request was built, so "
+            f"the model never saw it and nothing was billed. The block is in the audit chain."
+        )
+    if f.governance == "policy_blocked":
+        cats = ", ".join(f.policy_categories) or "a policy category"
+        return (
+            f"The data policy stopped this inside the provider call ({cats}) — no tokens left the "
+            f"process. The finding's categories are reported; the matched value never is."
+        )
+    if f.governance == "output_blocked":
+        return (
+            f"The model answered and the output gate refused to send it. ⚠️ This turn is still "
+            f"billed {_usd(f.cost_usd)} — the tokens were spent before the gate could see them."
+        )
+    if f.governance == "broke_on_budget":
+        return (
+            f"The stream was cut at the chunk where this turn's {_usd(f.turn_allowance_usd)} "
+            f"allowance ran out. Spend stops at that boundary; whatever the channel had already "
+            f"been sent stays on screen."
+        )
+    return (
+        f"Answered in {f.model_calls} model call{'' if f.model_calls == 1 else 's'} for "
+        f"{_usd(f.cost_usd)}. This conversation has used {_usd(f.session_spent_usd)} of "
+        f"{_usd(f.session_cap_usd)}."
+    )
+
+
+def _row(name: str, lib: str, lines: list[str]) -> dict[str, Any] | None:
+    """One library's row: what it is on the left, what it DID on the right."""
+    text = "\n\n".join(t for t in lines if t)
+    if not text:
+        return None
+    return {
+        "type": "ColumnSet",
+        "separator": True,
+        "spacing": "Small",
+        "columns": [
+            {
+                "type": "Column",
+                "width": "108px",
+                "items": [
+                    {"type": "TextBlock", "text": f"**{name}**", "wrap": True, "size": "Small"},
+                    {
+                        "type": "TextBlock",
+                        "text": lib,
+                        "wrap": True,
+                        "size": "Small",
+                        "isSubtle": True,
+                        "spacing": "None",
+                    },
+                ],
+            },
+            {
+                "type": "Column",
+                "width": "stretch",
+                "items": [{"type": "TextBlock", "text": text, "wrap": True, "size": "Small"}],
+            },
+        ],
+    }
+
+
+def governance_card(f: TurnFacts) -> dict[str, Any]:
+    """An Adaptive Card 1.5 that says **which library did what** on this turn, in words.
+
+    1.5 rather than anything newer on purpose: the Playground, Teams and WebChat all render it.
+    """
+    style, headline = _STATUS.get(f.governance, ("accent", f.governance))
+
+    core_lines = []
+    if f.model_calls:
+        core_lines.append(f"detected **{f.provider or '?'} · {f.model}** from the client's shape")
+        core_lines.append(f"{f.input_tokens:,} in / {f.output_tokens:,} out — the provider's count")
+    else:
+        core_lines.append("**no model call was made** — nothing reached the provider")
+    if f.trace_id:
+        core_lines.append(f"one trace id for the turn: `{f.trace_id}`")
+
+    budget_lines = []
+    if f.cost_usd is not None:
+        budget_lines.append(f"this turn **{_usd(f.cost_usd)}** (Decimal, never a float)")
+    if f.session_spent_usd is not None and f.session_cap_usd is not None:
+        budget_lines.append(
+            f"session {_usd(f.session_spent_usd)} of {_usd(f.session_cap_usd)}, "
+            f"held in the host's own TurnState"
+        )
+    if f.turn_allowance_usd is not None:
+        budget_lines.append(f"this turn's fuse: {_usd(f.turn_allowance_usd)} (the remainder)")
+    # ⚠️ The provenance line, not a decoration. A USD cap is only as good as the rate under it, and
+    # an unpriced model makes every dollar guard in this file a silent no-op. `prices.explain()`
+    # answers "where did that rate come from" without anyone reading the library's source.
+    if f.rate_from:
+        budget_lines.append(f"rate {f.rate_from}")
+
+    ctx_lines = []
+    if f.assembled_messages:
+        ctx_lines.append(
+            f"packed {f.assembled_messages} message(s) into a "
+            f"{f.context_budget_tokens:,}-token window"
+        )
+
+    sq_lines = []
+    if f.squeezed_pct is not None:
+        sq_lines.append(f"history compressed **{f.squeezed_pct}%** — reversible, not summarised")
+
+    gate_lines = []
+    for d in f.decisions:
+        gate_lines.append(f"`{d.guardrail}` → **{d.action}**")
+    if not gate_lines and f.governance not in ("policy_blocked",):
+        gate_lines.append("in and out: nothing to act on")
+
+    audit_lines = []
+    if f.policy_categories:
+        audit_lines.append(f"data policy stopped: {', '.join(f.policy_categories)}")
+    if f.audit_entries is not None:
+        audit_lines.append(f"{f.audit_entries} hash-chained entries")
+    if f.audit_head:
+        audit_lines.append(f"head `{f.audit_head[:16]}…` — `verify()` re-walks the file")
+
+    body: list[dict[str, Any]] = [
+        {
+            "type": "Container",
+            "style": style,
+            "bleed": True,
+            "items": [
+                {"type": "TextBlock", "text": headline, "weight": "Bolder", "wrap": True},
+                {"type": "TextBlock", "text": _narration(f), "wrap": True, "spacing": "Small"},
+            ],
+        }
+    ]
+    for row in (
+        _row("Bus feed", "core", core_lines),
+        _row("Budget", "tokenguard", budget_lines),
+        _row("Receipt", "contextkit", ctx_lines),
+        _row("Compression", "squeeze", sq_lines),
+        _row("Gate", "guardrails", gate_lines),
+        _row("Audit", "acttrace", audit_lines),
+    ):
+        if row is not None:
+            body.append(row)
+
+    body.append(
+        {
+            "type": "TextBlock",
+            "text": (
+                "_Every number above came from the published cendor packages reading this turn "
+                "— not from the app. Replay it from a cassette and this card is identical._"
+            ),
+            "wrap": True,
+            "isSubtle": True,
+            "size": "Small",
+            "separator": True,
+            "spacing": "Medium",
+        }
+    )
+    return {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": body,
+    }
+
+
+async def reply(
+    context: TurnContext,
+    text: str,
+    envelope: Envelope,
+    facts: TurnFacts | None = None,
+    *,
+    cards: bool = False,
+) -> None:
+    """Plain text, the machine envelope, and — when asked — the card a human reads.
 
     `channelData.cendor` is for the channel / your back end to consume. Whether a *client* surfaces
     it is client-specific: the M365 Agents Playground projects `channelData` away in its UI (it is
     still on the wire), so don't tell people to look for it there — assert it in a test, or log it.
+    The card is the visible half, and it goes in `attachments`, which every one of those clients
+    does forward.
     """
     activity = Activity(type=ActivityTypes.message, text=text)
     activity.channel_data = {**(activity.channel_data or {}), **envelope.as_channel_data()}
+    if cards and facts is not None:
+        activity.attachments = [
+            Attachment(
+                content_type="application/vnd.microsoft.card.adaptive",
+                content=governance_card(facts),
+            )
+        ]
     await context.send_activity(activity)
 
 
@@ -492,7 +771,11 @@ class GovernedAgent:
         self.input_gate, self.output_gate = input_gate(), output_gate()
         self.session_cap_usd = SESSION_CAP_USD if session_cap_usd is None else session_cap_usd
         self._ambient = install_turn_ambient()
+        self.audit_path = audit_path
         self.audit, self._interceptor = install_audit(audit_path)
+        #: Process-wide, flipped by `/cards on|off`. Off unless `M365_CARDS=1` — plain text stays
+        #: the canonical reply, so governance never depends on a channel rendering a card.
+        self.cards = CARDS_DEFAULT
 
         # The host, in anonymous local mode (see the README before deploying).
         auth = AgentAuthConfiguration(anonymous_allowed=True)
@@ -519,21 +802,72 @@ class GovernedAgent:
         remove_interceptor(self._interceptor)
         remove_ambient_provider(self._ambient)
 
+    def rate_provenance(self) -> str:
+        """One phrase saying where `MODEL`'s per-token rate came from (`cendor-core` >= 1.19).
+
+        Three answers, and the third is the one that costs money if nobody notices it:
+
+        * **registered** — `price_the_deployment()` named the model behind an arbitrary deployment
+          name. Your line, and it outranks every table forever.
+        * **from a source, as of a date** — the bundled snapshot (generated from the cendor-prices
+          feed, with per-row provenance) or whatever `prices.refresh()` you called at startup.
+        * **unpriced** — no rate exists, so tokenguard counts every call as $0 and the USD cap,
+          the pre-flight refusal and the mid-stream breaker are all silent no-ops.
+        """
+        e = prices.explain(MODEL)
+        if e.registered:
+            return f"registered here as `{BASE_MODEL}` — your line, outranks every table"
+        if e.how == "unpriced":
+            return "**UNPRICED — every USD guard on this turn is a silent no-op**"
+        return f"from **{e.row_source or e.source_name}** as of {e.row_asof or e.snapshot_date}"
+
+    def turn_facts(self, facts: TurnFacts) -> TurnFacts:
+        """Stamp the audit chain's state and the price provenance onto `facts` at reply time.
+
+        Read at reply time, not at turn start, because the entries this turn wrote are the whole
+        point. The head comes from the live `AuditLog`; the count is the chain FILE's line count —
+        the file is the evidence, and asking it is how you notice a writer that stopped writing.
+        """
+        facts.rate_from = self.rate_provenance()
+        facts.audit_head = self.audit.head
+        try:
+            with open(self.audit_path, encoding="utf-8") as fh:
+                facts.audit_entries = sum(1 for line in fh if line.strip())
+        except OSError:
+            facts.audit_entries = None  # no chain file yet — an answer, not an error
+        return facts
+
     def _register(self) -> None:
         agent = self
 
         @agent.app.activity("message")
         async def on_message(context: TurnContext, state: TurnState) -> None:
             text = (context.activity.text or "").strip()
+
+            # `/cards on|off` — the visible-governance toggle. It costs nothing and calls nothing,
+            # so it answers before the ledger is even read.
+            if text.lower() in ("/cards on", "/cards off"):
+                agent.cards = text.lower().endswith("on")
+                await context.send_activity(
+                    Activity(
+                        type=ActivityTypes.message,
+                        text=f"Governance cards {'on' if agent.cards else 'off'}.",
+                    )
+                )
+                return
+
             streamed = text.startswith("/stream ")
             if streamed:
                 text = text[len("/stream ") :]
             ledger = SpendLedger(state, cap_usd=agent.session_cap_usd)
+            facts = TurnFacts(model=MODEL, session_cap_usd=ledger.cap_usd)
 
             # (D) every bus event raised below carries this turn's identity and one trace id
             with turn_scope(context):
                 # (C) the cheapest refusal there is: the cap is gone, so no model call happens
                 if ledger.exhausted:
+                    facts.governance = "session_cap_reached"
+                    facts.session_spent_usd = ledger.spent
                     await reply(
                         context,
                         "This conversation has used its budget, so I didn't call the model.",
@@ -542,6 +876,8 @@ class GovernedAgent:
                             session_spent_usd=str(ledger.spent),
                             session_cap_usd=str(ledger.cap_usd),
                         ),
+                        agent.turn_facts(facts),
+                        cards=agent.cards,
                     )
                     return
 
@@ -555,6 +891,9 @@ class GovernedAgent:
                     agent.audit.flag(
                         f"input blocked by {hit.guardrail}", action="blocked", severity="warning"
                     )
+                    facts.governance = "input_blocked"
+                    facts.decisions = list(in_decisions)
+                    facts.session_spent_usd = ledger.spent
                     await reply(
                         context,
                         "I can't process that message.",
@@ -563,20 +902,29 @@ class GovernedAgent:
                             decisions=[f"{d.guardrail}:{d.action}" for d in in_decisions],
                             session_spent_usd=str(ledger.spent),
                         ),
+                        agent.turn_facts(facts),
+                        cards=agent.cards,
                     )
                     return
 
                 history: list[dict] = list(state.get_value(HISTORY_KEY, lambda: []) or [])
                 assembly = assemble_prompt(history=history, user_text=str(gated_text))
                 allowance = ledger.turn_allowance()
+                facts.assembled_messages = len(assembly.messages)
+                facts.squeezed_pct = assembly.squeezed_pct
+                facts.turn_allowance_usd = allowance
+                facts.session_spent_usd = ledger.spent
+                facts.decisions = list(in_decisions)
 
                 # (A) is skipped on a streamed turn, on purpose. ⚠️ (A) and (E) are MUTUALLY
                 # EXCLUSIVE: the estimate reserves the full `max_output_tokens`, so any allowance
                 # small enough for the breaker to fire is already below the estimate — the
                 # turn would be refused before a chunk exists. A stream's fuse IS the breaker.
                 if not streamed:
-                    affordable, _est = preflight(assembly.messages, allowance=allowance)
+                    affordable, est = preflight(assembly.messages, allowance=allowance)
                     if not affordable:
+                        facts.governance = "preflight_refused"
+                        facts.estimate_usd = est.amount if isinstance(est, Money) else None
                         await reply(
                             context,
                             "That request would exceed what's left of this conversation's budget.",
@@ -585,6 +933,8 @@ class GovernedAgent:
                                 session_spent_usd=str(ledger.spent),
                                 session_cap_usd=str(ledger.cap_usd),
                             ),
+                            agent.turn_facts(facts),
+                            cards=agent.cards,
                         )
                         return
 
@@ -606,6 +956,8 @@ class GovernedAgent:
                     # Uncaught, the channel shows "the agent hit an error" instead of the refusal.
                     # Report categories, never the matched value.
                     categories = sorted({f.category for f in (violation.findings or [])})
+                    facts.governance = "policy_blocked"
+                    facts.policy_categories = categories
                     await reply(
                         context,
                         "I can't send that to the model — our data policy blocked it"
@@ -614,6 +966,8 @@ class GovernedAgent:
                             governance="policy_blocked",
                             decisions=[f"acttrace:{c}" for c in categories],
                         ),
+                        agent.turn_facts(facts),
+                        cards=agent.cards,
                     )
                     return
                 finally:
@@ -655,8 +1009,22 @@ class GovernedAgent:
                     session_cap_usd=str(ledger.cap_usd),
                     decisions=[f"{d.guardrail}:{d.action}" for d in in_decisions + out_decisions],
                 )
+                facts.governance = envelope.governance
+                facts.provider = calls[-1].provider if calls else None
+                facts.trace_id = envelope.trace_id
+                facts.cost_usd = cost.amount
+                facts.input_tokens, facts.output_tokens = usage_in, usage_out
+                facts.model_calls = len(calls)
+                facts.session_spent_usd = total
+                facts.decisions = list(in_decisions) + list(out_decisions)
                 # A streamed turn already flushed its text, so the envelope rides a final activity.
-                await reply(context, "" if streamed else str(safe_answer), envelope)
+                await reply(
+                    context,
+                    "" if streamed else str(safe_answer),
+                    envelope,
+                    agent.turn_facts(facts),
+                    cards=agent.cards,
+                )
 
         # ⚠️ **A ports asymmetry that decides whether the cap above works at all.** On Python
         # (`microsoft-agents-hosting-core` 1.2.0) `AgentApplication.run()` awaits

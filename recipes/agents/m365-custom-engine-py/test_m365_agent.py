@@ -9,6 +9,7 @@ wrap map itself.
 from __future__ import annotations
 
 import asyncio
+import json
 import tempfile
 from decimal import Decimal
 from pathlib import Path
@@ -58,6 +59,55 @@ def test_the_gates_and_the_fuses_fire():
     assert report["preflight"]["governance"] == "preflight_refused"
     assert "cost_usd" not in report["preflight"]
     assert "reached" not in report["preflight"]["text"]
+
+
+def test_the_governance_card_says_what_happened():
+    """The card is the only view of the libraries a Playground/Teams user actually sees.
+
+    ⚠️ These assert *content*, not shape. A card that renders and says nothing is the failure mode
+    worth guarding: the whole reason it exists is that `channelData` was invisible in the chat pane.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        report = asyncio.run(walkthrough(Path(d)))
+
+    card = report["card_ok"]
+    assert card["type"] == "AdaptiveCard"
+    assert card["version"] == "1.5", "1.5 keeps Playground + Teams + WebChat all rendering it"
+
+    text = json.dumps(card)
+    # every library that acted on the turn is named ON the card, beside what it did
+    for lib in ("core", "tokenguard", "contextkit", "guardrails", "acttrace"):
+        assert lib in text, f"{lib} did work on this turn and the card does not say so"
+    # …and the numbers are the SAME TURN's envelope values, not a second computation of them.
+    # ⚠️ Compare against `card_ok_env` (that reply's own envelope), never against another turn's:
+    # the deterministic fake makes two turns' costs equal, so a cross-turn assertion passes for the
+    # wrong reason. The trace id is what catches it — it is unique per turn.
+    env = report["card_ok_env"]
+    assert env["cost_usd"] in text, "the card's money must be the turn's real Decimal cost"
+    assert env["trace_id"] in text, "the card must describe THIS turn, not a re-run of it"
+    assert str(env["input_tokens"]) in text and str(env["output_tokens"]) in text
+    # provenance: a dollar figure with no source is what a cost review rejects
+    assert "rate " in text and ("as of" in text or "outranks every table" in text)
+
+    # a refusal must EXPLAIN itself. "the agent hit an error" is the failure this replaces.
+    refusal = json.dumps(report["preflight_card"])
+    assert "refused before the call" in refusal
+    assert "Zero provider calls, $0 spent" in refusal
+    # ⚠️ and it must not claim the CAP was reached — the estimate over-reserves, so it can refuse
+    # while the ledger still shows headroom. Two different sentences, on purpose.
+    # ⚠️ Match the claim, not the word: a bare `"reached" not in refusal` fails on the card's own
+    # honest line "nothing reached the provider". A substring is not a claim.
+    for lie in ("cap reached", "reached your cap", "reached its cap"):
+        assert lie not in refusal.lower(), f"a pre-flight refusal must not say {lie!r}"
+    # …and the NEGATIVE CONTROL: the session-cap refusal is a genuinely different event, and it
+    # does say so. Without this line the assertion above would still pass on a card that had
+    # simply stopped explaining anything.
+    capped = json.dumps(report["capped_card"]).lower()
+    assert "session cap reached" in capped
+    assert "no model call was made" in capped
+
+    # off by default, and the toggle really turns it off: governance never depends on styling
+    assert report["card_off"] == {}, "/cards off must stop attaching the card"
 
 
 def test_the_whole_agent_replays_offline():

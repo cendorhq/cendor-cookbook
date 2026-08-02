@@ -109,6 +109,7 @@ uv run pytest recipes/testing recipes/governance          # the test-style recip
 | [cassette-semantic-drift](recipes/libs/cassette-semantic-drift/) | library | Measured: a surface scorer keeps the paraphrase and drops the real change — why `scorer=` exists | `core` `cassette` | ✓ |
 | [acttrace-custom-detector](recipes/libs/acttrace-custom-detector/) | library | `register_detector()` with a validator + `enable_locale_pack()`; 1 of 5 found before, 5 after | `core` `acttrace` | ✓ |
 | [core-seams](recipes/libs/core-seams/) | library | `trace()`, `add_stream_observer()` (an enforcement seam) and `tokens.register()` | `core` | ✓ |
+| [prices-live-and-explain](recipes/libs/prices-live-and-explain/) | library | `prices.explain()` — which source priced this call, as of when; plus `save`/`load`, `refresh(required=True)` and the stale-table warning | `core` `tokenguard` | ✓ |
 | [openai-chat](recipes/providers/openai-chat/) | provider · RECORD | Pre-flight budget + attribution on Chat Completions | `core` `tokenguard` | ✓ |
 | [openai-responses](recipes/providers/openai-responses/) | provider · RECORD | Capture reasoning + cached tokens on the Responses API | `core` `tokenguard` | ✓ |
 | [anthropic](recipes/providers/anthropic/) | provider · RECORD | Price prompt-cache reads/writes correctly, audited | `core` `tokenguard` `acttrace` | ✓ |
