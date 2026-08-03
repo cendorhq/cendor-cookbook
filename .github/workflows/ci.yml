@@ -28,6 +28,15 @@ jobs:
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      # A recipe that PRINTS a character cp1252 cannot encode dies on a Windows console. Every job
+      # in this file is ubuntu-latest, so the matrix structurally cannot see that class — which is
+      # exactly why it is a static check. It found a live offender the day it was written
+      # (agents/m365-custom-engine-py printed a ⚠️ in its vacuous-replay branch).
+      # ⚠️ It does NOT claim the recipes run on Windows; it checks printed string literals only.
+      - run: uv run python scripts/check_print_encoding.py
+      # The README's recipe TABLE is gated (by the site's card check, against both trees); the
+      # SENTENCES stating totals were not, and had drifted two numbers behind on 2026-08-03.
+      - run: uv run python scripts/check_readme_counts.py
 
   quickstarts:
     strategy:

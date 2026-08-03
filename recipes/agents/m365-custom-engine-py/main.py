@@ -288,7 +288,10 @@ def main() -> None:
     # vacuous True read as a pass.
     if not any(replay["recorded"]):
         print(
-            "  ⚠️ VACUOUS   : every recorded reply is empty, so 'identical' compares nothing. On a "
+            # ASCII on purpose: a warning glyph here raises UnicodeEncodeError on a Windows
+            # console (cp1252), and this branch fires only when something already needs
+            # explaining — the worst moment to crash. See scripts/check_print_encoding.py.
+            "  VACUOUS!   : every recorded reply is empty, so 'identical' compares nothing. On a "
             f"reasoning model the {agent_mod.MAX_OUTPUT_TOKENS}-token cap can be spent entirely on "
             "hidden "
             "reasoning — raise MAX_OUTPUT_TOKENS (or use a non-reasoning deployment) to make this "

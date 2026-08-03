@@ -117,6 +117,22 @@ when a category is missing from its CI matrix; there is no Python equivalent. Ad
 enumerated category, or adding a category at all, means editing `ci.yml` by hand — and nothing will
 remind you.
 
+**Two gates the `lint` job runs besides ruff (both added 2026-08-03, both with a proven negative control):**
+
+- `scripts/check_print_encoding.py` — **no recipe PRINTS a character cp1252 cannot encode.** A
+  `⚠️` inside a `print()` raises `UnicodeEncodeError` on a Windows console; the process dies. Every
+  job in `ci.yml` is `ubuntu-latest`, so the matrix **structurally cannot see this class**, which is
+  why a static check earns its place. It found a live offender the day it was written
+  (`agents/m365-custom-engine-py` printed one in its vacuous-replay branch — the worst moment to
+  crash, since that branch fires only when something already needs explaining). It walks the **AST**,
+  not lines: a docstring explaining this hazard contains both `print(` and the glyph, and a
+  line-based scan flags it. ⚠️ It does **not** claim the recipes run on Windows — printed string
+  literals only. Typographic characters cp1252 covers (em dash, `…`, `·`) are deliberately fine.
+- `scripts/check_readme_counts.py` — **the totals stated in README prose match the disk.** The
+  recipe *table* is gated (by the site's card check, across both trees); the *sentences* were not,
+  and had drifted two numbers behind — *"52 of the 53 recipes here"* against 54 on disk, with the
+  table complete and correct. A number in prose rots silently because no gate reads prose.
+
 `ruff` is the lint + format gate (line length 100). ⚠️ `*.md` is excluded **deliberately**, not to
 dodge a failure: ruff 0.16 began reformatting the Python blocks inside every recipe README, and three
 of the four rewrites it wanted made the teaching worse.
