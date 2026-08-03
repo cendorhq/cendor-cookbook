@@ -36,7 +36,22 @@ jobs:
       - run: uv run python scripts/check_print_encoding.py
       # The README's recipe TABLE is gated (by the site's card check, against both trees); the
       # SENTENCES stating totals were not, and had drifted two numbers behind on 2026-08-03.
+      #
+      # ⚠️ The parity leg needs the TypeScript tree, and WITHOUT IT THE LEG SKIPS while the gate
+      # still prints PASS — which would gate the notebook count and not the parity sentence, i.e.
+      # not the number that actually drifted. The first CI run of this gate did exactly that.
+      # `actions/checkout` refuses a `path:` outside the workspace, so the sibling cannot go at
+      # `../cendor-cookbook-js`; it is cloned in-workspace and pointed at by COOKBOOK_JS_PATH.
+      # Public repo, so no token. `fetch-depth: 1` + `sparse-checkout` keeps it cheap.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: cendorhq/cendor-cookbook-js
+          path: .cookbook-js
+          fetch-depth: 1
+          sparse-checkout: recipes
       - run: uv run python scripts/check_readme_counts.py
+        env:
+          COOKBOOK_JS_PATH: .cookbook-js/recipes
 
   quickstarts:
     strategy:

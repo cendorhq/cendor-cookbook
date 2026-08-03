@@ -25,6 +25,7 @@ HONEST LIMIT. This checks the arithmetic, not the claim. It cannot tell you the 
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 import sys
@@ -32,7 +33,19 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RECIPES = ROOT / "recipes"
 README = ROOT / "README.md"
-JS_RECIPES = ROOT.parent / "cendor-cookbook-js" / "recipes"
+
+#: The TypeScript tree, for the parity leg. A maintainer has it as a sibling checkout; CI clones it
+#: into the workspace and points COOKBOOK_JS_PATH here, because `actions/checkout` refuses a `path:`
+#: outside `$GITHUB_WORKSPACE` and so cannot place it at `../cendor-cookbook-js`.
+#:
+#: ⚠️ Without it the parity leg SKIPS - and the parity sentence is precisely the number that drifted,
+#: so a skip in CI would gate the wrong half and still print PASS. Measured 2026-08-03: the first CI
+#: run of this gate did exactly that.
+JS_RECIPES = (
+    pathlib.Path(os.environ["COOKBOOK_JS_PATH"]).resolve()
+    if os.environ.get("COOKBOOK_JS_PATH")
+    else ROOT.parent / "cendor-cookbook-js" / "recipes"
+)
 
 #: The four documented folder-name divergences (this repo's CLAUDE.md; mirrored in the site gate).
 ALIASES = {
