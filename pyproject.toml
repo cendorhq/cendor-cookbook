@@ -59,12 +59,12 @@ dev = [
   "pytest>=8,<10",
   "pytest-xdist>=3,<4",
   "pytest-asyncio>=0.24,<1.5",
-  "ruff==0.16.0",
+  "ruff==0.16.1",
   # The 20 curated notebooks (recipes/*/*/notebook.ipynb) are EXECUTED in CI: `pytest --nbmake`
   # runs every cell top to bottom and fails on the first exception, so a notebook cannot rot into
   # a screenshot of code that used to work. `ipykernel` is what supplies the kernel nbmake starts.
   "nbmake>=1.5,<2",
-  "ipykernel>=6.29,<7",
+  "ipykernel>=6.29,<8",
 ]
 # Framework SDK groups — one per framework category so CI can install (and break) them in
 # isolation. Each carries an upper bound at the next breaking release, so one framework's
@@ -77,12 +77,12 @@ frameworks-langchain = [
   "langgraph>=1.2,<2",
 ]
 frameworks-agents = [
-  "openai-agents>=0.17,<0.19",
+  "openai-agents>=0.17,<0.20",
 ]
 # Framework-bridge recipes (recipes/bridges/): expose a cendor Guardrail inside another framework's
 # own guardrail/hook seam. Offline — the recipes exercise the bridge directly, no model call.
 frameworks-mcp = [
-  "mcp>=1.28,<2",
+  "mcp>=1.28,<3",
 ]
 frameworks-claude-agent = [
   "claude-agent-sdk>=0.2,<1",
